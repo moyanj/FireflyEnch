@@ -18,6 +18,6 @@ x_forwarded_for_header = "X-FORWARDED-FOR"
 preload_app = True
 
 pidfile = "gunicorn.pid"
-# 设置访问日志和错误信息日志路径
-errorlog = "-"
+errorlog = "-"  # 访问日志和错误日志都输出到控制台
+accesslog = "-"  # 输出访问日志到控制台
 max_requests = 2500

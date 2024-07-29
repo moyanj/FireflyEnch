@@ -1,6 +1,5 @@
-version=1.0.1
-
-py = python3.9
+version=1.0.2
+py=python3.9
 
 echo 开始安装环境
 ${py} -m pip install -r requirements.txt

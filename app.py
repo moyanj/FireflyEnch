@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file, url_for, abort
+from flask import Flask, jsonify, request, send_file, url_for, abort, redirect
 from flask_cors import CORS
 import os
 from db import db
@@ -148,12 +148,13 @@ def delete_image(image_id):
         return jsonify({'message': '图片删除成功'}), 200
     else:
         return jsonify({'error': '图片未找到'}), 404
-        
+@app.route('/')
+def index():
+    return redirect(url_for('static_file',filename='index.html'))
+
 @app.route('/<path:filename>')
 def static_file(filename):
     path = filename
-    if path == '/':
-        path = '/index.html'
     # 构建请求的文件路径
     file_path = os.path.join(app.root_path, 'files',path)
     if '..' in file_path:
