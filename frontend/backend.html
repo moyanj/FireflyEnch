@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}图片上传{% endblock title %}
+
+{% block css %}
+<style>
+    .preview-image {
+        max-width: 100%;
+        height: auto;
+        margin-top: 10px;
+    }
+</style>
+{% endblock css %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header">
+            图片上传与预览
+        </div>
+        <div class="card-body">
+            <div id="uploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="adminPassword">管理员密码：</label>
+                    <input type="password" class="form-control" id="adminPassword" name="adminPassword" required>
+                </div>
+                <br>
+                <div class="form-group">
+                    <label for="image">选择图片：</label>
+                    <input type="file" class="form-control-file" id="image" name="image" accept="image/*" required>
+                    <small id="imageHelp" class="form-text text-muted">只能选择图片文件（.jpg, .jpeg, .png, .gif）</small>
+                </div>
+                <br>
+        
+                <div class="form-group">
+                    <label for="tags">标签（可选）：</label>
+                    <input type="text" class="form-control" id="tags" name="tags">
+                </div>
+                <br>
+                <button type="button" class="btn btn-primary" id="sub">上传</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="uploadResult" style="display: none;" class="mt-3">
+        <div class="alert alert-success" role="alert" id="successMessage">
+            图片上传成功！
+        </div>
+        <div id="imagePreview">
+            <!-- 图片预览将在上传成功后显示 -->
+        </div>
+    </div>
+</div>
+{% endblock content %}
+{% block js %}
+
+<script>
+    $(document).ready(function() {
+        $('#image').change(function() {
+            var input = this;
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#imagePreview').html('<img src="' + e.target.result + '" class="preview-image">');
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        });
+
+        $('#sub').click(function() {
+            
+            var adminPassword = $('#adminPassword').val();
+            console.log(adminPassword.length)
+            
+            var formData = new FormData();
+            formData.append('image', $('#image')[0].files[0]);
+            formData.append('tags', $('#tags').val());
+
+            $.ajax({
+                type: 'POST',
+                url: '{{ base_url }}/api/upload?appkey=' + gen_key("/api/upload", adminPassword),
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    $('#uploadResult').show();
+                    $('#successMessage').text(response.message);
+
+                    var imageUrl = response.image.url;
+                    var imageHtml = '<img src="' + imageUrl + '" class="preview-image">';
+                    $('#imagePreview').html(imageHtml);
+
+                    $('#uploadForm')[0].reset();
+                },
+                error: function(error) {
+                    var errorMessage = error.responseJSON.error || '图片上传失败';
+                    alert(errorMessage);
+                }
+            });
+        });
+    });
+</script>
+{% endblock js %}

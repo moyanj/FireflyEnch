@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}主页{% endblock title %}
+
+{% block css %}
+<style>
+    .card {
+        margin-bottom: 1vh;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .card img {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+
+    .card-body {
+        padding: 10px;
+    }
+
+    .card-text {
+        font-size: 0.7rem;
+        color: #777;
+    }
+
+    card-title {
+        font-size: 0.rem;
+    }
+</style>
+
+{% endblock css %}
+
+{% block content %}
+<div class="container my-4">
+    <div id="gallery" class="row"></div>
+    <nav aria-label="Page navigation example" class="my-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item">
+                <button class="page-link" id="prevBtn">上一页</button>
+            </li>
+            <li class="page-item">
+                <button class="page-link" id="nextBtn">下一页</button>
+            </li>
+        </ul>
+    </nav>
+</div>
+{% endblock content%}
+
+{% block js %}
+<script>
+    $(document).ready(function() {
+        const itemsPerPage = 10;
+        let currentPage = 1;
+        let totalItems = 0;
+
+        function fetchImages(page) {
+            return $.ajax({
+                url: base_url + `/api/images`,
+                method: 'GET',
+                data: {
+                    page: page,
+                    per: itemsPerPage
+                },
+                dataType: 'json',
+                error: function() {
+                    bs4pop.notice("与服务器的连接丢失了呢 o(╥﹏╥)o ",{"height":"2vh"});
+        
+                }
+
+            });
+        }
+
+        function renderCards(itemsToDisplay) {
+            const gallery = $('#gallery');
+            gallery.empty();
+            itemsToDisplay.forEach(item => {
+                const card = $(`
+                <div class="col-md-3 col-sm-6 col-6">
+                    <div class="card">
+                        <a href="${item.url}"><img src="${item.url}" class="card-img-top"></a>
+                        <div class="card-body">
+                            <p class="card-text">#${item.tags.join(', #')}</p>
+                        </div>
+                    </div>
+                </div>
+            `);
+                gallery.append(card);
+            });
+        }
+
+        function updatePage() {
+            fetchImages(currentPage).done(function(data) {
+                renderCards(data.images);
+                totalItems = data.total;
+                $('#prevBtn').prop('disabled', currentPage === 1);
+                $('#nextBtn').prop('disabled', currentPage * itemsPerPage >= totalItems);
+            });
+        }
+
+        $('#prevBtn').click(function() {
+            $('html, body').animate({
+                scrollTop: 0
+            }, 'slow');
+            if (currentPage > 1) {
+                currentPage--;
+                updatePage();
+            }
+        });
+
+        $('#nextBtn').click(function() {
+            $('html, body').animate({
+                scrollTop: 0
+            }, 'slow');
+            if (currentPage * itemsPerPage < totalItems) {
+                currentPage++;
+                updatePage();
+            }
+        });
+
+        // Initial page load
+        updatePage();
+    });
+</script>
+
+{% endblock js %}
