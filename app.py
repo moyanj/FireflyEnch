@@ -152,6 +152,8 @@ def delete_image(image_id):
 @app.route('/<path:filename>')
 def static_file(filename):
     path = filename
+    if path == '/':
+        path = '/index.html'
     # 构建请求的文件路径
     file_path = os.path.join(app.root_path, 'files',path)
     if '..' in file_path:
