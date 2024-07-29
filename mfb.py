@@ -2,10 +2,9 @@ import os
 import shutil
 import time
 import sass
+import htmlmin
 import click
-from jinja2 import Environment, FileSystemLoader, FileSystemBytecodeCache
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from jinja2 import Environment, FileSystemLoader
 
 class BasePlugin:
     def __init__(self):
@@ -18,14 +17,14 @@ class BasePlugin:
 class HtmlPlugin(BasePlugin):
     def render(self, template_path, output_dir, context):
         if template_path.endswith(('.html')):
-            os.makedirs('.cache',exist_ok=True)
-            env = Environment(loader=FileSystemLoader(self.base_path), autoescape=True, bytecode_cache=FileSystemBytecodeCache('.cache'))
+            
+            env = Environment(loader=FileSystemLoader(self.base_path), autoescape=True)
             template = env.get_template(os.path.relpath(template_path, self.base_path))
             rendered_content = template.render(context)
-            
+            mined = htmlmin.minify(rendered_content, remove_comments=True)
             output_path = os.path.join(output_dir, os.path.basename(template_path))
             with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(rendered_content)
+                f.write(mined)
             return True
 
 class DefaultPlugin(BasePlugin):
@@ -87,7 +86,6 @@ class TemplateRenderer:
         for root, _, files in os.walk(self.input_dir):
            
             for f in files:
-                print('Processing:', f)
                 if f in ignore_files:
                     continue
                     
@@ -100,19 +98,7 @@ class TemplateRenderer:
                     if plugin.render(os.path.join(root, f), output_subdir, context):
                         break
 
-class Handler(FileSystemEventHandler):
-    def __init__(self, renderer, ctx, dist):
-        # super().__init__()
-        self.renderer = renderer
-        self.ctx = ctx
-        self.dist = dist
-        
-    def on_modified(self,event):
-        print('文件修改')
-        build(self.renderer, self.ctx)
-    
 def build(renderer,other={}):
-    st = time.time()
     context = {
         'build_time': time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
         'version': '1.0.2',
@@ -123,15 +109,13 @@ def build(renderer,other={}):
     context.update(other)
     # 渲染模板
     renderer.render_templates(context)
-    print('Time:', time.time() - st, 's')
    
 @click.command()
 @click.argument('input_dir')
 @click.option('--plugin','-p', multiple=True)              
 @click.option('--dist', default='dist')
-@click.option('--watch','-w',is_flag=True, default=False)
 @click.option('--define','-d', multiple=True)
-def cli(input_dir, plugin, dist, watch, define):
+def cli(input_dir, plugin, dist, define):
     plug_map = {
         'sass':SassPlugin,
         'tjs':TJSPlugin,
@@ -150,20 +134,7 @@ def cli(input_dir, plugin, dist, watch, define):
     for d in define:
         ctxs[d.split('=')[0]] = d.split('=')[1]
         
-    if watch:
-        build(renderer, ctxs)
-        observer = Observer() 
-        observer.schedule(Handler(renderer, ctxs, dist), path=input_dir, recursive=False) 
-        observer.start()
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            
-            observer.stop()
-        observer.join()
-    else:
-        build(renderer, ctxs)
+    build(renderer, ctxs)   
   
 if __name__ == "__main__":
     cli()
