@@ -1,5 +1,6 @@
 from flask import Flask, request, send_file, url_for, abort, redirect
 from flask_cors import CORS
+from flask_caching import Cache
 from werkzeug.utils import secure_filename
 
 import os
@@ -13,6 +14,15 @@ import mjson as json
 
 app = Flask(__name__)
 CORS(app)
+
+config = {  # some Flask specific configs
+    "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
+    "CACHE_DEFAULT_TIMEOUT": 172800,
+    "CACHE_DIR": "./cache",
+}
+app.config.from_mapping(config)
+cache = Cache(app)
+
 
 UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FLODER", "uploads("))
 SECRET_KEY = "ce4d82a91eeb6e2af36cd291d48f1de15d424417d2a6eb0778be51b9acf1f77eee3adc4df2d44555bfd79187c18daa4187ecd0c1477d2474da42be3ebc8c74e4"
