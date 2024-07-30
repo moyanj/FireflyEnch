@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, send_file, url_for, abort, redirect
 from flask_cors import CORS
+from flask_caching import Cache
 import os
 from db import db
 import hashlib
@@ -15,6 +16,14 @@ CORS(app)
 DATABASE = 'db.json'
 UPLOAD_FOLDER = os.path.abspath(os.environ.get('UPLOAD_FLODER','uploads('))
 SECRET_KEY = 'ce4d82a91eeb6e2af36cd291d48f1de15d424417d2a6eb0778be51b9acf1f77eee3adc4df2d44555bfd79187c18daa4187ecd0c1477d2474da42be3ebc8c74e4'
+config = {
+    "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
+    "CACHE_DEFAULT_TIMEOUT": 172800,
+    "CACHE_DIR": "./cache",
+}
+app.config.from_mapping(config)
+cache = Cache(app)
+
 
 def gen_key(route, sk):
     salt = str(int(time.time()))
@@ -93,6 +102,7 @@ def upload_image():
 
 # 获取图片的路由（带分页）
 @app.route('/api/images', methods=['GET'])
+@cache.cached(timeout=3600)
 def get_images():
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per', 10))
@@ -133,6 +143,7 @@ def get_image(image_id):
         return jsonify({'error': '图片未找到'}), 404
 
 @app.route('/api/image/tag')
+@cache.cached(timeout=3600)
 def get_image_by_tag():
     tag = request.args.get('tag')
     ret = []
@@ -161,6 +172,7 @@ def delete_image(image_id):
         return jsonify({'message': '图片删除成功'}), 200
     else:
         return jsonify({'error': '图片未找到'}), 404
+
 @app.route('/')
 def index():
     return redirect(url_for('static_file',filename='index.html'))

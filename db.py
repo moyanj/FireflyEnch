@@ -78,8 +78,9 @@ class FastJSONStorage(Storage):
 
 class Base:
     def __init__(self, name, write_threshold=2, force=False):
+        os.makedirs('db',exist_ok=True)
         self.rootdb = TinyDB(
-            "DB.pcdb",
+            "db/DB.pcdb",
             storage=FastJSONStorage,
             write_threshold=write_threshold,
             force=False,
