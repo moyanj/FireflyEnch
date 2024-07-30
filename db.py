@@ -113,6 +113,9 @@ class Images(Base):
 
     def get(self, idx):
         return self.search(self.q.id == str(idx))
+    
+    def get_by_tag(self, tag):
+        return self.search(self.q.tags.any(tag))
 
 # 创建 Images 类的实例
 db = Images('images', 1)

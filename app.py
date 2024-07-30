@@ -132,6 +132,19 @@ def get_image(image_id):
     else:
         return jsonify({'error': '图片未找到'}), 404
 
+@app.route('/api/image/tag')
+def get_image_by_tag():
+    tag = request.args.get('tag')
+    ret = []
+    for item in db.get_by_tag(tag):
+        items = {
+            'url':urljoin(request.host_url, url_for('get_image',image_id=item['id'])),
+            'id':item['id'],
+            'tags':item['tags']
+        }
+        ret.append(items)
+    return jsonify(ret)
+    
 # 删除指定ID图片的路由
 @app.route('/api/image/<int:image_id>', methods=['DELETE'])
 @appkey_required
