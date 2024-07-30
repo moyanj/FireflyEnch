@@ -82,7 +82,7 @@
 
             $.ajax({
                 type: 'POST',
-                url: '{{ base_url }}/api/upload?appkey=' + gen_key("/api/upload", adminPassword),
+                url: '{{ base_url }}/api/upload?appkey='+adminPassword,
                 data: formData,
                 contentType: false,
                 processData: false,
@@ -108,7 +108,7 @@
 
             $.ajax({
                 type: 'GET',
-                url: '{{ base_url }}/api/clear?appkey=' + gen_key("/api/clear", adminPassword),
+                url: '{{ base_url }}/api/clear?appkey=' + adminPassword,
                 success: function(response) {
                     alert(response.message);
                 },

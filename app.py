@@ -4,10 +4,8 @@ from flask_caching import Cache
 import os
 from db import db
 import hashlib
-import time
 from urllib.parse import urljoin
 from functools import wraps
-from base64 import b64encode, b64decode
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -23,37 +21,13 @@ config = {
 }
 app.config.from_mapping(config)
 cache = Cache(app)
-
-
-def gen_key(route, sk):
-    salt = str(int(time.time()))
-    data = salt + route + salt
-    data += sk
-
-    hashed = hashlib.sha256(data.encode('utf-8')).hexdigest()
-    encoded_t = b64encode(salt.encode()).decode('utf-8')
-
-    return hashed + '.' + encoded_t
-
-def verify(key, route, sk):
-    o_hashed, t = key.split('.')
     
-    t = b64decode(t).decode('utf-8')
-    salt = t
-    
-    data = salt + route + salt
-    data += sk
-
-    hashed = hashlib.sha256(data.encode('utf-8')).hexdigest()
-    
-    return hashed == o_hashed
-
 def appkey_required(view_func):
     @wraps(view_func)
     def wrapped_view(*args, **kwargs):
 
         head_T = request.args.get("appkey", None)
-        if verify(head_T, request.path, SECRET_KEY):
+        if not head_T == SECRET_KEY:
             return abort(403)
         else:
             return view_func(*args, **kwargs)
