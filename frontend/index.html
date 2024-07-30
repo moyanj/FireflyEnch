@@ -52,7 +52,7 @@
 {% block js %}
 <script>
     $(document).ready(function() {
-        const itemsPerPage = 50;
+        const itemsPerPage = 20;
         let currentPage = 1;
         let totalItems = 0;
 
@@ -80,7 +80,7 @@
                 const card = $(`
                 <div class="col-md-3 col-sm-6 col-6">
                     <div class="card">
-                        <a href="${item.url}"><img src="${item.url}" class="card-img-top" loading="lazy"></a>
+                        <a href="${base_url}/api/image/${item.id}"><img src="${base_url}/api/image/${item.id}" class="card-img-top" loading="lazy"></a>
                         <div class="card-body">
                             <p class="card-text">#${item.tags.join(', #')}</p>
                         </div>

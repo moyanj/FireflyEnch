@@ -4,3 +4,5 @@ imgs/
 frontend/
 test.py
 build.sh
+.git/
+mfb.py
