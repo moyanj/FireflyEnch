@@ -66,8 +66,10 @@
                 },
                 dataType: 'json',
                 error: function() {
-                    bs4pop.notice("与服务器的连接丢失了呢 o(╥﹏╥)o ",{"height":"2vh"});
-        
+                    bs4pop.notice("与服务器的连接丢失了呢 o(╥﹏╥)o ", {
+                        "height": "2vh"
+                    });
+
                 }
 
             });
@@ -80,7 +82,7 @@
                 const card = $(`
                 <div class="col-md-3 col-sm-6 col-6">
                     <div class="card">
-                        <a href="${base_url}/api/image/${item.id}"><img src="${base_url}/api/image/${item.id}" class="card-img-top" loading="lazy"></a>
+                        <a href="${base_url}/api/image/${item.id}"><img src="statics/img/placeholder.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazyload" loading="lazy"></a>
                         <div class="card-body">
                             <p class="card-text">#${item.tags.join(', #')}</p>
                         </div>
@@ -88,6 +90,26 @@
                 </div>
             `);
                 gallery.append(card);
+            });
+            // 初始化懒加载
+            lazyLoadImages();
+        }
+
+        function lazyLoadImages() {
+            const lazyImages = document.querySelectorAll('.lazyload');
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const lazyImage = entry.target;
+                        lazyImage.src = lazyImage.dataset.src;
+                        lazyImage.classList.remove('lazyload');
+                        observer.unobserve(lazyImage);
+                    }
+                });
+            });
+
+            lazyImages.forEach(image => {
+                observer.observe(image);
             });
         }
 

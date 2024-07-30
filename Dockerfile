@@ -1,17 +1,28 @@
-#使用python的slim镜像以减少大小
+# Use Python slim image to reduce size
 FROM python:3.10.3-slim
-# 复制代码
-COPY . /moyan
-#设置工作目录
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Set the working directory
 WORKDIR /moyan
-#为python设置环境变量
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-#新建用户并安装依赖包
-RUN pip install --no-cache-dir --upgrade -r requirements.txt && adduser -u 1145 --disabled-password --gecos "" moyan && chown -R moyan /moyan
-#设置程序运行用户
+
+# Copy only the requirements file initially
+COPY . .
+
+# Install dependencies
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
+
+# Create a non-root user for running the application
+RUN adduser --system --group moyan \
+    && chown -R moyan:moyan /moyan
+
+# Switch to the non-root user
 USER moyan
-#开放4573端口
+
+# Expose the port that the app runs on
 EXPOSE 8896
-#设置启动命令
-CMD ["gunicorn","app:app"]
+
+# Command to run the application
+CMD ["gunicorn", "app:app"]

@@ -15,7 +15,11 @@
         <img src="/favicon.png" width="65%" height="auto">
         <p class="text-secondary" style="font-size: 8px;">若此图作者看到请与我联系</p>
         <h1>FireflyEnch</h1>
+        {% if type == 'rel' %}
         <p>V {{ version }}</p>
+        {% else %}
+        <p>V {{ version }} (测试版)</p>
+        {% endif %}
         <br>
         <p>致力于收集好看的图片</p>
         <br>

@@ -24,7 +24,7 @@ app.config.from_mapping(config)
 cache = Cache(app)
 
 
-UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FLODER", "uploads("))
+UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FLODER", "uploads"))
 SECRET_KEY = "ce4d82a91eeb6e2af36cd291d48f1de15d424417d2a6eb0778be51b9acf1f77eee3adc4df2d44555bfd79187c18daa4187ecd0c1477d2474da42be3ebc8c74e4"
 
 def appkey_required(view_func):
@@ -89,6 +89,7 @@ def upload_image():
 
 # 获取图片的路由（带分页）
 @app.route("/api/images", methods=["GET"])
+@cache.cached(timeout=300)
 def get_images():
     page = int(request.args.get("page", 1))
     per_page = 10
@@ -121,7 +122,7 @@ def get_image(image_id):
 
     # 根据ID从数据库中获取图片信息
     image = db.get(image_id)
-
+    print(image)
     if len(image) >= 1:
         filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
         return send_file(filepath)  # 使用文件路径发送图片
@@ -130,7 +131,6 @@ def get_image(image_id):
 
 
 @app.route("/api/image/tag")
-@cache.cached(timeout=3600)
 def get_image_by_tag():
     page = int(request.args.get("page", 1))
     per_page = 10
@@ -143,7 +143,14 @@ def get_image_by_tag():
     for item in db.get_by_tag(tag)[offset : offset + per_page]:
         items = {"id": item["id"], "tags": item["tags"]}
         ret.append(items)
-    return jsonify(ret)
+    return jsonify(
+        {
+            "total": len(ret),
+            "page": page,
+            "per_page": per_page,
+            "images": ret,
+        }
+    )
 
 
 # 删除指定ID图片的路由

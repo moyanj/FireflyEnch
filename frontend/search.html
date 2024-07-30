@@ -1,13 +1,163 @@
 {% extends "base.html" %}
 {% block title %}搜索{% endblock title %}
 
+{% block css %}
+<style>
+    .card {
+        margin-bottom: 1vh;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .card img {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+
+    .card-body {
+        padding: 10px;
+    }
+
+    .card-text {
+        font-size: 0.7rem;
+        color: #777;
+    }
+
+    card-title {
+        font-size: 0.rem;
+    }
+</style>
+
+{% endblock css %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex">
-        <input class="form-control me-2" type="input" placeholder="搜索Tag" aria-label="Search">
-        <button class="btn btn-outline-primary" type="submit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+        <input class="form-control me-2" type="input" placeholder="搜索Tag" aria-label="Search" id="search">
+        <button class="btn btn-outline-primary" id="sub"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
                 <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z" />
             </svg></button>
     </div>
+    <br>
+    <div id="gallery" class="row"></div>
+    <nav aria-label="Page navigation example" class="my-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item">
+                <button class="page-link" id="prevBtn">上一页</button>
+            </li>
+            <li class="page-item">
+                <button class="page-link" id="nextBtn">下一页</button>
+            </li>
+        </ul>
+    </nav>
+
 </div>
+
 {% endblock content %}
+
+{% block js %}
+<script>
+    $(document).ready(function() {
+        const itemsPerPage = 10;
+        let currentPage = 1;
+        let totalItems = 0;
+
+        function fetchImages(page) {
+            var tag = $('#search').val();
+            return $.ajax({
+                url: base_url + `/api/image/tag`,
+                method: 'GET',
+                data: {
+                    page: page,
+                    tag: tag
+                },
+                dataType: 'json',
+                error: function() {
+                    bs4pop.notice("与服务器的连接丢失了呢 o(╥﹏╥)o ", {
+                        "height": "2vh"
+                    });
+
+                }
+
+            });
+        }
+
+        function renderCards(itemsToDisplay) {
+            const gallery = $('#gallery');
+            gallery.empty();
+            itemsToDisplay.forEach(item => {
+                const card = $(`
+                <div class="col-md-3 col-sm-6 col-6">
+                    <div class="card">
+                        <a href="${base_url}/api/image/${item.id}"><img src="statics/img/placeholder.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazyload" loading="lazy"></a>
+                        <div class="card-body">
+                            <p class="card-text">#${item.tags.join(', #')}</p>
+                        </div>
+                    </div>
+                </div>
+            `);
+                gallery.append(card);
+            });
+            // 初始化懒加载
+            lazyLoadImages();
+        }
+
+        function lazyLoadImages() {
+            const lazyImages = document.querySelectorAll('.lazyload');
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const lazyImage = entry.target;
+                        lazyImage.src = lazyImage.dataset.src;
+                        lazyImage.classList.remove('lazyload');
+                        observer.unobserve(lazyImage);
+                    }
+                });
+            });
+
+            lazyImages.forEach(image => {
+                observer.observe(image);
+            });
+        }
+
+        function updatePage() {
+            fetchImages(currentPage).done(function(data) {
+                renderCards(data.images);
+                totalItems = data.total;
+                $('#prevBtn').prop('disabled', currentPage === 1);
+                $('#nextBtn').prop('disabled', currentPage * itemsPerPage >= totalItems);
+            });
+        }
+
+        $('#prevBtn').click(function() {
+            $('html, body').animate({
+                scrollTop: 0
+            }, 'slow');
+            if (currentPage > 1) {
+                currentPage--;
+                updatePage();
+            }
+        });
+
+        $('#nextBtn').click(function() {
+            $('html, body').animate({
+                scrollTop: 0
+            }, 'slow');
+            if (currentPage * itemsPerPage < totalItems) {
+                currentPage++;
+                updatePage();
+            }
+        });
+
+        $("#sub").click(function() {
+            // load page
+            updatePage();
+        })
+      
+    });
+</script>
+
+{% endblock js %}
