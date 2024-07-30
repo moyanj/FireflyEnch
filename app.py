@@ -173,6 +173,12 @@ def delete_image(image_id):
     else:
         return jsonify({'error': '图片未找到'}), 404
 
+@app.route('/api/clear')
+@appkey_required
+def clear():
+    cache.clear()
+    return jsonify({'message':'清空完毕'})
+
 @app.route('/')
 def index():
     return redirect(url_for('static_file',filename='index.html'))
