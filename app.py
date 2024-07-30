@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 from functools import wraps
 
 from db import db
-import json
+import mjson as json
 
 
 app = Flask(__name__)

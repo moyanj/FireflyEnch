@@ -1,5 +1,5 @@
 import os
-import json
+import mjson as json
 import io
 from tinydb import TinyDB, Storage, Query
 from typing import Dict, Any, Optional
