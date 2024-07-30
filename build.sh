@@ -1,4 +1,4 @@
-version=1.1.4
+version=1.1.5
 py=python3.9
 
 echo 开始安装环境
