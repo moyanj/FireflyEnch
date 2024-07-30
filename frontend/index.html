@@ -8,7 +8,9 @@
         border: 1px solid #ddd;
         border-radius: 8px;
         overflow: hidden;
-        box-shadow: 0 4px 4px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 4px #999;
+        background-color: #fff;
+        /* 默认背景色为白色 */
     }
 
     .card img {
@@ -26,15 +28,29 @@
         color: #777;
     }
 
-    card-title {
-        font-size: 0.rem;
+    /* 暗黑模式下的调整 */
+    @media (prefers-color-scheme: dark) {
+        .card {
+            background-color: #333;
+            /* 暗色背景 */
+            border-color: #555;
+            /* 暗色边框 */
+            box-shadow: 0 4px 4px #888;
+        
+        }
+
+        .card-text {
+            color: #aaa;
+            /* 暗色下的文字颜色 */
+        }
+
     }
 </style>
 
 {% endblock css %}
 
 {% block content %}
-<div class="container my-4">
+<div class="container my-4 cont">
     <div id="gallery" class="row"></div>
     <nav aria-label="Page navigation example" class="my-4">
         <ul class="pagination justify-content-center">

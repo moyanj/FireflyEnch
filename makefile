@@ -1,6 +1,6 @@
 # Define variables
 PYTHON = python3.9
-VERSION = 1.2.0
+VERSION = 1.2.1
 
 # Define targets and dependencies
 all: frontend docker

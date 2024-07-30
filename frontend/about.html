@@ -2,35 +2,36 @@
 {% block title %}关于{% endblock title %}
 {% block css %}
 <style>
-.card {
-    box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.2);
-}
+    .card {
+        box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.2);
+    }
 </style>
 {% endblock css %}
 {% block content %}
-<br>
-<div class="card" align="center">
-    <div class="card-body">
-        <br>
-        <img src="/favicon.png" width="65%" height="auto">
-        <p class="text-secondary" style="font-size: 8px;">若此图作者看到请与我联系</p>
-        <h1>FireflyEnch</h1>
-        {% if type == 'rel' %}
-        <p>V {{ version }}</p>
-        {% else %}
-        <p>V {{ version }} (测试版)</p>
-        {% endif %}
-        <br>
-        <p>致力于收集好看的图片</p>
-        <br>
-        <p>作者：<a href="https://github.com/moyanj" class="text-dark">莫颜JDC</a></p>
-        <br>
-        <p style="color: #777;" class="fs-6">构建时间：{{ build_time }}</p>
-        <br>
-        <p style="color: #777;">© 2018-2024 <a href="https://github.com/moyanj" style="color: #777;">MoYanJDC</a>. All rights reserved.</p>
-        
-        
-        
+<div class="container cont mt-4">
+    <div class="card" align="center">
+        <div class="card-body">
+            <br>
+            <img src="/favicon.png" width="65%" height="auto">
+            <p class="text-secondary" style="font-size: 8px;">若此图作者看到请与我联系</p>
+            <h1>FireflyEnch</h1>
+            {% if type == 'rel' %}
+            <p>V {{ version }}</p>
+            {% else %}
+            <p>V {{ version }} (测试版)</p>
+            {% endif %}
+            <br>
+            <p>致力于收集好看的图片</p>
+            <br>
+            <p>作者：<a href="https://github.com/moyanj" class="text-dark">莫颜JDC</a></p>
+            <br>
+            <p style="color: #777;" class="fs-6">构建时间：{{ build_time }}</p>
+            <br>
+            <p style="color: #777;">© 2018-2024 <a href="https://github.com/moyanj" style="color: #777;">MoYanJDC</a>. All rights reserved.</p>
+
+
+
+        </div>
     </div>
 </div>
 

@@ -20,5 +20,19 @@ body {
 
 .navbar {
     border-radius: 8px;
-    box-shadow: 4px 4px 4px #ADB5BD;
+    box-shadow: 4px 4px 4px #999;
+    background-color: #e3f2fd;
+}
+
+@media (prefers-color-scheme: dark) {
+    .navbar {
+        box-shadow: 4px 4px 4px #777;
+        background-color: #333;
+        /* 暗黑模式背景色 */
+        color: #fff;
+        /* 暗黑模式下的文字颜色 */
+    }
+    body, .cont {
+        background-color: #222;
+    }
 }
