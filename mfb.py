@@ -2,7 +2,6 @@ import os
 import shutil
 import time
 import sass
-import htmlmin
 import click
 from jinja2 import Environment, FileSystemLoader
 
@@ -23,10 +22,9 @@ class HtmlPlugin(BasePlugin):
             env = Environment(loader=FileSystemLoader(self.base_path), autoescape=True)
             template = env.get_template(os.path.relpath(template_path, self.base_path))
             rendered_content = template.render(context)
-            mined = htmlmin.minify(rendered_content, remove_comments=True)
             output_path = os.path.join(output_dir, os.path.basename(template_path))
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(mined)
+                f.write(rendered_content)
             return True
 
 

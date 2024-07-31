@@ -92,7 +92,7 @@ def upload_image():
 @cache.cached(timeout=300)
 def get_images():
     page = int(request.args.get("page", 1))
-    per_page = 10
+    per_page = 20
 
     # 计算偏移量和限制数量
     offset = (page - 1) * per_page
@@ -122,7 +122,6 @@ def get_image(image_id):
 
     # 根据ID从数据库中获取图片信息
     image = db.get(image_id)
-    print(image)
     if len(image) >= 1:
         filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
         return send_file(filepath)  # 使用文件路径发送图片
@@ -133,7 +132,7 @@ def get_image(image_id):
 @app.route("/api/image/tag")
 def get_image_by_tag():
     page = int(request.args.get("page", 1))
-    per_page = 10
+    per_page = 20
 
     # 计算偏移量和限制数量
     offset = (page - 1) * per_page
