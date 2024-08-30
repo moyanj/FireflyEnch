@@ -1,58 +1,55 @@
-from flask import Flask, request, send_file, url_for, abort, redirect
-from flask_cors import CORS
-from flask_caching import Cache
-from werkzeug.utils import secure_filename
-
+from sanic import Sanic, Request, response
+from sanic_cors import CORS
 import os
 import hashlib
 from urllib.parse import urljoin
+import random
+import aiofiles
+import multiprocessing
 from functools import wraps
 
 from db import db
-import mjson as json
 
+Sanic.start_method = 'fork'
 
-app = Flask(__name__)
+app = Sanic('FireflyEnch')
 CORS(app)
-
-config = {  # some Flask specific configs
-    "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
-    "CACHE_DEFAULT_TIMEOUT": 172800,
-    "CACHE_DIR": "./cache",
-}
-app.config.from_mapping(config)
-cache = Cache(app)
-
-
-UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FLODER", "uploads"))
+UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FOLDER", "uploads"))
 SECRET_KEY = "ce4d82a91eeb6e2af36cd291d48f1de15d424417d2a6eb0778be51b9acf1f77eee3adc4df2d44555bfd79187c18daa4187ecd0c1477d2474da42be3ebc8c74e4"
 
+app.config.FORWARDED_FOR_HEADER = 'X-FORWARDED-FOR'
+
+def jsonify(data, status=200):
+    return response.json(data, status=status)
+
+async def save_file(file, filename):
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    async with aiofiles.open(filepath, 'wb') as out_file:
+        await out_file.write(file.body)
+    return filepath
+    
 def appkey_required(view_func):
     @wraps(view_func)
-    def wrapped_view(*args, **kwargs):
+    def wrapped_view(request:Request, *args, **kwargs):
 
         head_T = request.args.get("appkey", None)
         if not head_T == SECRET_KEY:
-            return abort(403)
+            return jsonify({'code':403}, 403)
         else:
-            return view_func(*args, **kwargs)
+            return view_func(request, *args, **kwargs)
 
     return wrapped_view
+        
 
-
-def jsonify(data):
-    return json.dumps(data)
-
-
-# 上传图片的路由
-@app.route("/api/upload", methods=["POST"])
+@app.post('/api/upload')
 @appkey_required
-def upload_image():
+async def upload_image(request: Request):
     if "image" not in request.files:
         return jsonify({"error": "请求中没有文件部分"}), 400
 
     file = request.files["image"]
-    if file.filename == "":
+    file = file[0]
+    if file.name == "":
         return jsonify({"error": "没有选择文件"}), 400
 
     tags = request.form.get("tags", "")  # 获取标签数据
@@ -62,35 +59,30 @@ def upload_image():
         os.makedirs(UPLOAD_FOLDER)
 
     # 确保文件名是安全的
-    filename = secure_filename(file.filename)
+    filename = file.name
 
     # 如果文件名已经存在，添加哈希值
     base, ext = os.path.splitext(filename)
     hashs = hashlib.sha1()
-    hashs.update(file.read())
+    hashs.update(file.body)  # Read file content asynchronously
     filename = f"{hashs.hexdigest()}{ext}"
 
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.seek(0)
-    file.save(filepath)
+    filepath = await save_file(file, filename)
 
     # 插入图片信息到数据库
     new_image = db.add(filepath, tags)
     new_image = {
         "id": new_image["id"],
         "url": urljoin(
-            request.host_url, url_for("get_image", image_id=new_image["id"])
+            request.host, app.url_for("get_image", image_id=str(new_image["id"]))
         ),
         "tags": new_image["tags"],
     }
 
-    return jsonify({"message": "图片上传成功", "image": new_image}), 201
+    return jsonify({"message": "图片上传成功", "image": new_image}, 201)
 
-
-# 获取图片的路由（带分页）
-@app.route("/api/images", methods=["GET"])
-@cache.cached(timeout=300)
-def get_images():
+@app.get("/api/images")
+async def get_images(request: Request):
     page = int(request.args.get("page", 1))
     per_page = 20
 
@@ -98,9 +90,9 @@ def get_images():
     offset = (page - 1) * per_page
 
     # 连接数据库
-
     all_data = db.db.all()
     data = all_data[offset : offset + per_page]
+    random.shuffle(data)
     image_list = []
     for item in data:
         items = {"id": item["id"], "tags": item["tags"]}
@@ -115,22 +107,18 @@ def get_images():
         }
     )
 
-
-# 获取指定ID图片的路由
-@app.route("/api/image/<int:image_id>", methods=["GET"])
-def get_image(image_id):
-
-    # 根据ID从数据库中获取图片信息
+@app.get("/api/image/<image_id:int>")
+async def get_image(request: Request, image_id: int):
+    # 根据ID从数据库中获取图片信息#
     image = db.get(image_id)
     if len(image) >= 1:
         filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
-        return send_file(filepath)  # 使用文件路径发送图片
+        return await response.file(filepath)  # 使用文件路径发送图片
     else:
         return jsonify({"error": "图片未找到"}), 404
-
-
-@app.route("/api/image/tag")
-def get_image_by_tag():
+       
+@app.get("/api/image/tag")
+async def get_image_by_tag(request: Request):
     page = int(request.args.get("page", 1))
     per_page = 20
 
@@ -151,11 +139,10 @@ def get_image_by_tag():
         }
     )
 
-
 # 删除指定ID图片的路由
-@app.route("/api/image/<int:image_id>", methods=["DELETE"])
+@app.delete("/api/image/<image_id:int>",)
 @appkey_required
-def delete_image(image_id):
+async def delete_image(request: Request, image_id):
     image = db.get(image_id)
     if len(image) >= 1:
         # 删除文件
@@ -170,39 +157,31 @@ def delete_image(image_id):
 
         # 删除数据库记录
         db.delete(image_id)
-        return jsonify({"message": "图片删除成功"}), 200
+        return jsonify({"message": "图片删除成功"})
     else:
-        return jsonify({"error": "图片未找到"}), 404
+        return jsonify({"error": "图片未找到"}, 404)
 
-
-@app.route("/api/clear")
-@appkey_required
-def clear():
-    cache.clear()
-    return jsonify({"message": "清空完毕"})
-
-
-@app.route("/")
-def index():
-    return redirect(url_for("static_file", filename="index.html"))
-
-
-@app.route("/<path:filename>")
-def static_file(filename):
-    path = filename
+@app.route("/<path:path>")
+@app.route('/', name='index')
+async def static_file(request: Request, path="/index.html"):
+   
     # 构建请求的文件路径
-    file_path = os.path.join(app.root_path, "files", path)
+    file_path = 'files/' + path
     if ".." in file_path:
-        return abort(403)
+        return jsonify({'code':403})
 
     # 验证请求的文件路径确实是文件且存在
     if os.path.isfile(file_path):
-        # 使用 Flask 的 send_file 函数安全地发送文件
-        return send_file(file_path)
+        return await response.file(file_path)   
     else:
         # 如果文件不存在，返回 404 错误
-        abort(404)
+        return jsonify({'code':404})
 
+if __name__ == '__main__':
+    cpu_count = multiprocessing.cpu_count()
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(
+        host='0.0.0.0',
+        port=8896,
+        workers=cpu_count*2+1
+    )

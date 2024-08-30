@@ -1,5 +1,5 @@
 # Use Python slim image to reduce size
-FROM python:3.10.3-slim
+FROM python:3.12.5-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -25,4 +25,4 @@ USER moyan
 EXPOSE 8896
 
 # Command to run the application
-CMD ["gunicorn", "app:app"]
+CMD ["python", "app.py"]

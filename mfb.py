@@ -1,7 +1,6 @@
 import os
 import shutil
 import time
-import sass
 import click
 from jinja2 import Environment, FileSystemLoader
 
@@ -52,21 +51,6 @@ class TJSPlugin(BasePlugin):
             )
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(rendered_content)
-            return True
-
-
-class SassPlugin(BasePlugin):
-    def render(self, template_path, output_dir, context):
-        if template_path.endswith((".sass")):
-            with open(template_path) as f:
-                rendered = sass.compile(string=f.read())
-            with open(
-                os.path.join(
-                    output_dir, os.path.basename(template_path).replace(".sass", ".css")
-                ),
-                "w",
-            ) as f:
-                f.write(rendered)
             return True
 
 
@@ -132,7 +116,7 @@ def build(renderer, other={}):
 @click.option("--dist", default="dist")
 @click.option("--define", "-d", multiple=True)
 def cli(input_dir, plugin, dist, define):
-    plug_map = {"sass": SassPlugin, "tjs": TJSPlugin, "rjs": RJSPlugin}
+    plug_map = {"tjs": TJSPlugin, "rjs": RJSPlugin}
     renderer = TemplateRenderer(input_dir, dist)
 
     for p in plugin:
