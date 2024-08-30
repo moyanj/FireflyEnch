@@ -8,6 +8,7 @@ all: frontend docker
 init:
 	@echo 开始安装环境
 	${PYTHON} -m pip install -r requirements.txt
+	${PYTHON} -m pip install -r req.txt
 	
 frontend: init
 	${PYTHON} mfb.py frontend -p tjs -p rjs --dist files -d version=${VERSION} -d type=rel
