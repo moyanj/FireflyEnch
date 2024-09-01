@@ -5,6 +5,7 @@ import hashlib
 from urllib.parse import urljoin
 import random
 import aiofiles
+import math
 import multiprocessing
 from functools import wraps
 
@@ -45,12 +46,12 @@ def appkey_required(view_func):
 @appkey_required
 async def upload_image(request: Request):
     if "image" not in request.files:
-        return jsonify({"error": "请求中没有文件部分"}), 400
+        return jsonify({"error": "请求中没有文件部分"}, 400)
 
     file = request.files["image"]
     file = file[0]
     if file.name == "":
-        return jsonify({"error": "没有选择文件"}), 400
+        return jsonify({"error": "没有选择文件"}, 400)
 
     tags = request.form.get("tags", "")  # 获取标签数据
 
@@ -91,6 +92,11 @@ async def get_images(request: Request):
 
     # 连接数据库
     all_data = db.db.all()
+    last = False
+    
+    if math.ceil(len(all_data) / 20) <= page:
+        last = True
+        
     data = all_data[offset : offset + per_page]
     random.shuffle(data)
     image_list = []
@@ -104,6 +110,7 @@ async def get_images(request: Request):
             "page": page,
             "per_page": per_page,
             "images": image_list,
+            'last':last
         }
     )
 
@@ -115,26 +122,21 @@ async def get_image(request: Request, image_id: int):
         filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
         return await response.file(filepath)  # 使用文件路径发送图片
     else:
-        return jsonify({"error": "图片未找到"}), 404
+        return jsonify({"error": "图片未找到"}, 404)
        
 @app.get("/api/image/tag")
 async def get_image_by_tag(request: Request):
-    page = int(request.args.get("page", 1))
-    per_page = 20
-
-    # 计算偏移量和限制数量
-    offset = (page - 1) * per_page
-
-    tag = request.args.get("tag")
+    tags = request.args.get("tag")
+    tags = tags.split(',')
     ret = []
-    for item in db.get_by_tag(tag)[offset : offset + per_page]:
-        items = {"id": item["id"], "tags": item["tags"]}
-        ret.append(items)
+    for tag in tags:
+        for item in db.get_by_tag(tag):
+            items = {"id": item["id"], "tags": item["tags"]}
+            ret.append(items)
+    ret = list(set(ret))
     return jsonify(
         {
             "total": len(ret),
-            "page": page,
-            "per_page": per_page,
             "images": ret,
         }
     )
@@ -149,7 +151,8 @@ async def delete_image(request: Request, image_id):
         filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
 
         if os.path.exists(filepath):
-            os.remove(filepath)
+            if request.args.get('rmfile', '1') == '1':
+                os.remove(filepath)
             try:
                 os.remove(filepath + ".s")
             except:

@@ -33,10 +33,6 @@
 {% block js %}
 <script>
     $(document).ready(function() {
-        const itemsPerPage = 10;
-        let currentPage = 1;
-        let totalItems = 0;
-
         function fetchImages(page) {
             var tag = $('#search').val();
             return $.ajax({
@@ -98,32 +94,10 @@
         function updatePage() {
             fetchImages(currentPage).done(function(data) {
                 renderCards(data.images);
-                totalItems = data.total;
-                $('#prevBtn').prop('disabled', currentPage === 1);
-                $('#nextBtn').prop('disabled', currentPage * itemsPerPage >= totalItems);
             });
         }
 
-        $('#prevBtn').click(function() {
-            $('html, body').animate({
-                scrollTop: 0
-            }, 'slow');
-            if (currentPage > 1) {
-                currentPage--;
-                updatePage();
-            }
-        });
-
-        $('#nextBtn').click(function() {
-            $('html, body').animate({
-                scrollTop: 0
-            }, 'slow');
-            if (currentPage * itemsPerPage < totalItems) {
-                currentPage++;
-                updatePage();
-            }
-        });
-
+        
         $("#sub").click(function() {
             // load page
             updatePage();

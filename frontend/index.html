@@ -24,32 +24,27 @@
 {% block js %}
 <script>
     $(document).ready(function() {
-        const itemsPerPage = 20;
         let currentPage = 1;
-        let totalItems = 0;
+        let last = false;
 
         function fetchImages(page) {
             return $.ajax({
                 url: base_url + `/api/images`,
                 method: 'GET',
                 data: {
-                    page: page,
-                    per: itemsPerPage
+                    page: page
                 },
                 dataType: 'json',
                 error: function() {
                     bs4pop.notice("与服务器的连接丢失了呢 o(╥﹏╥)o ", {
                         "height": "2vh"
                     });
-
                 }
-
             });
         }
 
         function renderCards(itemsToDisplay) {
             const gallery = $('#gallery');
-            gallery.empty();
             itemsToDisplay.forEach(item => {
                 const card = $(`
                 <div class="col-md-3 col-sm-6 col-6">
@@ -63,8 +58,7 @@
             `);
                 gallery.append(card);
             });
-            // 初始化懒加载
-            lazyLoadImages();
+
         }
 
         function lazyLoadImages() {
@@ -85,38 +79,31 @@
             });
         }
 
-        function updatePage() {
+        function loadMoreImages() {
+            if (last) {
+                return;
+            }
             fetchImages(currentPage).done(function(data) {
+                if (data.last) {
+                    last = true;
+                    return;
+                }
                 renderCards(data.images);
-                totalItems = data.total;
-                $('#prevBtn').prop('disabled', currentPage === 1);
-                $('#nextBtn').prop('disabled', currentPage * itemsPerPage >= totalItems);
+                currentPage++;
             });
+            // 初始化懒加载
+            lazyLoadImages();
+
         }
 
-        $('#prevBtn').click(function() {
-            $('html, body').animate({
-                scrollTop: 0
-            }, 'slow');
-            if (currentPage > 1) {
-                currentPage--;
-                updatePage();
+        // 监听滚动事件
+        $(window).scroll(function() {
+            if ($(window).scrollTop() + $(window).height() > $(document).height() - 100) {
+                loadMoreImages();
             }
         });
-
-        $('#nextBtn').click(function() {
-            $('html, body').animate({
-                scrollTop: 0
-            }, 'slow');
-            if (currentPage * itemsPerPage < totalItems) {
-                currentPage++;
-                updatePage();
-            }
-        });
-
-        // Initial page load
-        updatePage();
+        
+        loadMoreImages();
     });
 </script>
-
 {% endblock js %}
