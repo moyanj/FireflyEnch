@@ -33,13 +33,12 @@
 {% block js %}
 <script>
     $(document).ready(function() {
-        function fetchImages(page) {
+        function fetchImages() {
             var tag = $('#search').val();
             return $.ajax({
                 url: base_url + `/api/image/tag`,
                 method: 'GET',
                 data: {
-                    page: page,
                     tag: tag
                 },
                 dataType: 'json',
@@ -52,7 +51,11 @@
 
             });
         }
-
+        function lazyload(){
+            const el = document.querySelectorAll('.lazy');
+            const observer = lozad(el); // passing a `NodeList` (e.g. `document.querySelectorAll()`) is also valid
+            observer.observe();
+        }
         function renderCards(itemsToDisplay) {
             const gallery = $('#gallery');
             gallery.empty();
@@ -60,7 +63,7 @@
                 const card = $(`
                 <div class="col-md-3 col-sm-6 col-6">
                     <div class="card">
-                        <a href="${base_url}/api/image/${item.id}"><img src="statics/img/placeholder.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazyload" loading="lazy"></a>
+                        <a href="${base_url}/api/image/${item.id}"><img src="statics/img/placeholder.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazy"></a>
                         <div class="card-body">
                             <p class="card-text">#${item.tags.join(', #')}</p>
                         </div>
@@ -70,29 +73,16 @@
                 gallery.append(card);
             });
             // 初始化懒加载
-            lazyLoadImages();
+            lazyload();
         }
 
-        function lazyLoadImages() {
-            const lazyImages = document.querySelectorAll('.lazyload');
-            const observer = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const lazyImage = entry.target;
-                        lazyImage.src = lazyImage.dataset.src;
-                        lazyImage.classList.remove('lazyload');
-                        observer.unobserve(lazyImage);
-                    }
-                });
-            });
-
-            lazyImages.forEach(image => {
-                observer.observe(image);
-            });
-        }
-
+        
         function updatePage() {
-            fetchImages(currentPage).done(function(data) {
+            fetchImages().done(function(data) {
+                if (data.total <= 0) {
+                    alert("没有结果");
+                    return;
+                }
                 renderCards(data.images);
             });
         }
