@@ -133,7 +133,6 @@ async def get_image_by_tag(request: Request):
         for item in db.get_by_tag(tag):
             items = {"id": item["id"], "tags": item["tags"]}
             ret.append(items)
-    ret = list(set(ret))
     return jsonify(
         {
             "total": len(ret),
