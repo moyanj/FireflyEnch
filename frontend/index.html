@@ -50,7 +50,7 @@
                 const card = $(`
                 <div class="col-md-3 col-sm-6 col-6">
                     <div class="card">
-                        <a href="${base_url}/api/image/${item.id}"><img src="statics/img/placeholder.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazyload" loading="lazy"></a>
+                        <a href="${base_url}/api/image/${item.id}"><img src="statics/img/placeholder.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazy"></a>
                         <div class="card-body">
                             <p class="card-text">#${item.tags.join(', #')}</p>
                         </div>
@@ -61,25 +61,11 @@
             });
 
         }
-
-        function lazyLoadImages() {
-            const lazyImages = document.querySelectorAll('.lazyload');
-            const observer = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const lazyImage = entry.target;
-                        lazyImage.src = lazyImage.dataset.src;
-                        lazyImage.classList.remove('lazyload');
-                        observer.unobserve(lazyImage);
-                    }
-                });
-            });
-
-            lazyImages.forEach(image => {
-                observer.observe(image);
-            });
+        function lazyload(){
+            const el = document.querySelectorAll('.lazy');
+            const observer = lozad(el); // passing a `NodeList` (e.g. `document.querySelectorAll()`) is also valid
+            observer.observe();
         }
-
         function loadMoreImages() {
             if (last) {
                 return;
@@ -90,12 +76,13 @@
                 }
                 if (currentPage == data.page) {
                     renderCards(data.images);
+                    // 初始化懒加载
+                    lazyload();
                 }
                 currentPage++;
             });
-            // 初始化懒加载
-            lazyLoadImages();
-
+            
+            
         }
 
         // 监听滚动事件
@@ -104,8 +91,8 @@
                 loadMoreImages();
             }
         });
-        
         loadMoreImages();
+        
     });
 </script>
 {% endblock js %}
