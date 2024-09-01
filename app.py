@@ -15,7 +15,7 @@ Sanic.start_method = 'fork'
 
 app = Sanic('FireflyEnch')
 CORS(app)
-UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FOLDER", "uploads"))
+UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FOLDER", "/mnt/data"))
 SECRET_KEY = "ce4d82a91eeb6e2af36cd291d48f1de15d424417d2a6eb0778be51b9acf1f77eee3adc4df2d44555bfd79187c18daa4187ecd0c1477d2474da42be3ebc8c74e4"
 
 app.config.FORWARDED_FOR_HEADER = 'X-FORWARDED-FOR'

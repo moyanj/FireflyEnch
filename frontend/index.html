@@ -8,6 +8,7 @@
 {% block content %}
 <div class="container my-4 cont">
     <div id="gallery" class="row"></div>
+    <!--
     <nav aria-label="Page navigation example" class="my-4">
         <ul class="pagination justify-content-center">
             <li class="page-item">
@@ -17,7 +18,7 @@
                 <button class="page-link" id="nextBtn">下一页</button>
             </li>
         </ul>
-    </nav>
+    </nav>-->
 </div>
 {% endblock content%}
 
@@ -86,9 +87,10 @@
             fetchImages(currentPage).done(function(data) {
                 if (data.last) {
                     last = true;
-                    return;
                 }
-                renderCards(data.images);
+                if (currentPage == data.page) {
+                    renderCards(data.images);
+                }
                 currentPage++;
             });
             // 初始化懒加载
