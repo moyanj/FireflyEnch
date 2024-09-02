@@ -10,6 +10,7 @@ import hashlib
 import random
 import math
 import multiprocessing
+import mjson
 
 
 Sanic.start_method = 'fork'
@@ -27,7 +28,7 @@ def jsonify(data=None, msg='OK', status=200):
         'message':msg,
         'data':data
     } 
-    return response.json(res, status=status)
+    return response.text(mjson.dumps(res), status=status)
 
 async def save_file(file, filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -37,13 +38,13 @@ async def save_file(file, filename):
     
 def appkey_required(view_func):
     @wraps(view_func)
-    def wrapped_view(request:Request, *args, **kwargs):
+    async def wrapped_view(request:Request, *args, **kwargs):
 
         head_T = request.args.get("appkey", None)
         if not head_T == SECRET_KEY:
             return jsonify(None, '无权限', 401)
         else:
-            return view_func(request, *args, **kwargs)
+            return await view_func(request, *args, **kwargs)
 
     return wrapped_view
        
@@ -54,6 +55,9 @@ async def exc(request, exception):
 @app.post('/api/upload')
 @appkey_required
 async def upload_image(request: Request):
+    '''
+    上传图片
+    '''
     if "image" not in request.files:
         return jsonify(msg='请求中没有文件部分', status=400)
 
@@ -73,7 +77,7 @@ async def upload_image(request: Request):
 
     # 如果文件名已经存在，添加哈希值
     base, ext = os.path.splitext(filename)
-    hashs = hashlib.sha1()
+    hashs = hashlib.md5()
     hashs.update(file.body)  # Read file content asynchronously
     filename = f"{hashs.hexdigest()}{ext}"
 
@@ -93,20 +97,23 @@ async def upload_image(request: Request):
 
 @app.get("/api/images")
 async def get_images(request: Request):
+    '''
+    带分页的图片获取
+    '''
     page = int(request.args.get("page", 1))
-    per_page = 20
-
+    
     # 计算偏移量和限制数量
-    offset = (page - 1) * per_page
+    offset = (page - 1) * 20
 
     # 连接数据库
     all_data = db.db.all()
     last = False
     
+    # 判断是否为最后一页
     if math.ceil(len(all_data) / 20) <= page:
         last = True
         
-    data = all_data[offset : offset + per_page]
+    data = all_data[offset : offset + 20]
     random.shuffle(data)
     image_list = []
     for item in data:
@@ -117,7 +124,6 @@ async def get_images(request: Request):
         {
             "total": len(image_list),
             "page": page,
-            "per_page": per_page,
             "images": image_list,
             'last':last
         }
@@ -125,17 +131,31 @@ async def get_images(request: Request):
     
 @app.get('/api/image/random')
 async def random_image(request: Request):
-    max_length = db.db.__len__()
-    idx = random.randint(1, max_length)
+    '''
+    获取随机图片
+    '''
+    max_length = db.db.__len__() # 获取最大id
+    idx = random.randint(1, max_length) # 随机选择
     image = db.get(idx)
+    
+    if request.args.get('info', '0') != 0:
+            return jsonify({"id": image[0]['id'], "tags": image[0]["tags"]})
+            
     filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
     return await response.file_stream(filepath)  # 使用文件路径发送图片
 
 @app.get("/api/image/<image_id:int>")
 async def get_image(request: Request, image_id: int):
-    # 根据ID从数据库中获取图片信息#
+    '''
+    根据ID从数据库中获取图片（信息）
+    '''
     image = db.get(image_id)
+    
+    
     if len(image) >= 1:
+        if request.args.get('info', '0') != '0':
+            return jsonify({"id": image[0]['id'], "tags": image[0]["tags"]})
+            
         filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
         return await response.file_stream(filepath)  # 使用文件路径发送图片
     else:
@@ -143,6 +163,9 @@ async def get_image(request: Request, image_id: int):
        
 @app.get("/api/image/tag")
 async def get_image_by_tag(request: Request):
+    '''
+    根据Tag获取图片
+    '''
     tags = request.args.get("tag")
     tags = tags.split(',')
     ret = []
@@ -150,6 +173,7 @@ async def get_image_by_tag(request: Request):
         for item in db.get_by_tag(tag):
             items = {"id": item["id"], "tags": item["tags"]}
             ret.append(items)
+            
     return jsonify(
         {
             "total": len(ret),
@@ -161,6 +185,9 @@ async def get_image_by_tag(request: Request):
 @app.delete("/api/image/<image_id:int>",)
 @appkey_required
 async def delete_image(request: Request, image_id):
+    '''
+    删除指定图片
+    '''
     image = db.get(image_id)
     if len(image) >= 1:
         # 删除文件
@@ -169,11 +196,6 @@ async def delete_image(request: Request, image_id):
         if os.path.exists(filepath):
             if request.args.get('rmfile', '1') == '1':
                 os.remove(filepath)
-            try:
-                os.remove(filepath + ".s")
-            except:
-                pass
-
         # 删除数据库记录
         db.delete(image_id)
         return jsonify(None, "图片删除成功", 204)
@@ -183,6 +205,9 @@ async def delete_image(request: Request, image_id):
 @app.patch('/api/image/<img_id:int>')
 @appkey_required
 def update_img(request:Request, img_id):
+    '''
+    修改一张图片的tag
+    '''
     tags = request.args.get('tags', '').split(',')
     db.modify(img_id, tags)
     return jsonify(msg='完成')
@@ -190,13 +215,15 @@ def update_img(request:Request, img_id):
 @app.delete('/api/clear')
 @appkey_required
 async def clear_cache(request: Request):
+    '''
+    清除数据库缓存
+    '''
     db.db.clear_cache()
-    return jsonify(msg='ok')
+    return jsonify()
     
 @app.route("/<path:path>")
 @app.route('/', name='index')
 async def static_file(request: Request, path="/index.html"):
-   
     # 构建请求的文件路径
     file_path = 'files/' + path
     if ".." in file_path:
