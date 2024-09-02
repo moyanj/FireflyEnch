@@ -113,6 +113,10 @@ async def get_images(request: Request):
         description: 页码
         required: true
         type: integer
+      - name: all
+        in: query
+        description: 是否返回全部
+        
     """
     page = int(request.args.get("page", 1))
 
@@ -126,13 +130,16 @@ async def get_images(request: Request):
     # 判断是否为最后一页
     if math.ceil(len(all_data) / 20) <= page:
         last = True
-
-    data = all_data[offset : offset + 20]
+    
+    if request.args.get('all', None):
+        all = all_data
+        last = True
+    else:
+        data = all_data[offset : offset + 20]
+        
     random.shuffle(data)
-    image_list = []
-    for item in data:
-        items = {"id": item["id"], "tags": item["tags"]}
-        image_list.append(items)
+    image_list = [{"id": item["id"], "tags": item["tags"]} for item in data]
+    
     # 返回分页结果
     return jsonify(
         {"total": len(image_list), "page": page, "images": image_list, "last": last}
@@ -210,10 +217,8 @@ async def get_image_by_tag(request: Request):
     tags = tags.split(",")
     ret = []
     for tag in tags:
-        for item in db.get_by_tag(tag):
-            items = {"id": item["id"], "tags": item["tags"]}
-            ret.append(items)
-
+        data = db.get_by_tag(tag)
+        ret += [{"id": item["id"], "tags": item["tags"]} for item in data]
     return jsonify(
         {
             "total": len(ret),
