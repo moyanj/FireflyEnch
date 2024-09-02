@@ -3,3 +3,4 @@ orjson==3.10.6
 tinydb==4.8.0
 aiofiles==23.2.1
 sanic-cors==2.2.0
+sanic_openapi==21.12.0
