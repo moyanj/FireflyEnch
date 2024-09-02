@@ -15,16 +15,6 @@
     </div>
     <br>
     <div id="gallery" class="row"></div>
-    <!-- <nav aria-label="Page navigation example" class="my-4"> -->
-    <!-- <ul class="pagination justify-content-center"> -->
-    <!-- <li class="page-item"> -->
-    <!-- <button class="page-link" id="prevBtn">上一页</button> -->
-    <!-- </li> -->
-    <!-- <li class="page-item"> -->
-    <!-- <button class="page-link" id="nextBtn">下一页</button> -->
-    <!-- </li> -->
-    <!-- </ul> -->
-    <!-- </nav> -->
 </div>
 
 {% endblock content %}
@@ -91,6 +81,10 @@
             // load page
             updatePage();
         })
+        if (Object.keys(queryParams).includes("tag")) {
+            $('#search').val(queryParams.tag);
+            updatePage();
+        }
       
     });
 </script>

@@ -76,14 +76,14 @@
                 reader.readAsDataURL(input.files[0]);
             }
         });
-
+    
         $('#sub').click(function() {
             var adminPassword = $('#adminPassword').val();
             
             var formData = new FormData();
             formData.append('image', $('#image')[0].files[0]);
             formData.append('tags', $('#tags').val());
-
+    
             $.ajax({
                 type: 'POST',
                 url: '{{ base_url }}/api/upload?appkey=' + adminPassword,
@@ -93,11 +93,11 @@
                 success: function(response) {
                     $('#uploadResult').show();
                     alert(response.message);
-
+    
                     var imageUrl = response.image.url;
                     var imageHtml = '<img src="' + imageUrl + '" class="preview-image">';
                     $('#imagePreview').html(imageHtml);
-
+    
                     $('#uploadForm')[0].reset();
                 },
                 error: function(error) {
@@ -106,11 +106,11 @@
                 }
             });
         });
-
+    
         $('#clear').click(function() {
             var adminPassword = $('#adminPassword').val();
             console.log(adminPassword.length);
-
+    
             $.ajax({
                 type: 'GET',
                 url: '{{ base_url }}/api/clear?appkey=' + adminPassword,
@@ -122,11 +122,11 @@
                 }
             });
         });
-
+    
         $('#deleteImageById').click(function() {
             var imageId = $('#imageId').val();
             var adminPassword = $('#adminPassword').val();
-
+    
             if (!imageId) {
                 alert("请输入图片ID");
                 return;

@@ -29,8 +29,13 @@
         let last = false;
 
         function fetchImages(page) {
+            if ($BP.onInit()) {
+                var url = base_url + `/api/images?all`;
+            } else {
+                var url = base_url + `/api/images`;
+            }
             return $.ajax({
-                url: base_url + `/api/images`,
+                url: url,
                 method: 'GET',
                 data: {
                     page: page
@@ -82,7 +87,6 @@
                 }
                 
             });
-            
             
         }
 
