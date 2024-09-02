@@ -92,7 +92,7 @@ class Base:
             write_threshold=write_threshold,
             force=False,
         )
-        self.db = self.rootdb.table(name)
+        self.db = self.rootdb.table(name, cache_size=32)
         self.q = Query()
 
     def search(self, expr):
