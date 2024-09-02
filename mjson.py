@@ -4,7 +4,9 @@ try:
     tp = True
 except ImportError:
     import ujson as json
+
     tp = False
+
 
 def loads(obj):
     if tp:

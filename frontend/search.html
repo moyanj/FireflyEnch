@@ -15,17 +15,16 @@
     </div>
     <br>
     <div id="gallery" class="row"></div>
-    <nav aria-label="Page navigation example" class="my-4">
-        <ul class="pagination justify-content-center">
-            <li class="page-item">
-                <button class="page-link" id="prevBtn">上一页</button>
-            </li>
-            <li class="page-item">
-                <button class="page-link" id="nextBtn">下一页</button>
-            </li>
-        </ul>
-    </nav>
-
+    <!-- <nav aria-label="Page navigation example" class="my-4"> -->
+    <!-- <ul class="pagination justify-content-center"> -->
+    <!-- <li class="page-item"> -->
+    <!-- <button class="page-link" id="prevBtn">上一页</button> -->
+    <!-- </li> -->
+    <!-- <li class="page-item"> -->
+    <!-- <button class="page-link" id="nextBtn">下一页</button> -->
+    <!-- </li> -->
+    <!-- </ul> -->
+    <!-- </nav> -->
 </div>
 
 {% endblock content %}
@@ -46,9 +45,9 @@
                     bs4pop.notice("与服务器的连接丢失了呢 o(╥﹏╥)o ", {
                         "height": "2vh"
                     });
-
+    
                 }
-
+    
             });
         }
         function lazyload(){
@@ -75,7 +74,7 @@
             // 初始化懒加载
             lazyload();
         }
-
+    
         
         function updatePage() {
             fetchImages().done(function(data) {
@@ -86,7 +85,7 @@
                 renderCards(data.data.images);
             });
         }
-
+    
         
         $("#sub").click(function() {
             // load page

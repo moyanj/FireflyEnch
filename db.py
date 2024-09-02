@@ -121,9 +121,10 @@ class Images(Base):
 
     def get_by_tag(self, tag):
         return self.search(self.q.tags.any(tag))
-    
+
     def modify(self, idx, tags):
-        self.db.update({'tags':tags}, self.q.id == idx)
+        self.db.update({"tags": tags}, self.q.id == idx)
+
 
 # 创建 Images 类的实例
 db = Images("images", 1)
