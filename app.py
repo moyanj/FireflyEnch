@@ -20,8 +20,13 @@ SECRET_KEY = "ce4d82a91eeb6e2af36cd291d48f1de15d424417d2a6eb0778be51b9acf1f77eee
 
 app.config.FORWARDED_FOR_HEADER = 'X-FORWARDED-FOR'
 
-def jsonify(data, status=200):
-    return response.json(data, status=status)
+def jsonify(data=None, msg='OK', status=200):
+    res = {
+        'code':status,
+        'message':msg,
+        'data':data
+    } 
+    return response.json(res, status=status)
 
 async def save_file(file, filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -35,23 +40,26 @@ def appkey_required(view_func):
 
         head_T = request.args.get("appkey", None)
         if not head_T == SECRET_KEY:
-            return jsonify({'code':403}, 403)
+            return jsonify(None, '无权限', 401)
         else:
             return view_func(request, *args, **kwargs)
 
     return wrapped_view
-        
-
+       
+@app.exception(Exception)
+async def exc(request, exception):
+    return jsonify(msg='服务器出错', status=500)
+    
 @app.post('/api/upload')
 @appkey_required
 async def upload_image(request: Request):
     if "image" not in request.files:
-        return jsonify({"error": "请求中没有文件部分"}, 400)
+        return jsonify(msg='请求中没有文件部分', status=400)
 
     file = request.files["image"]
     file = file[0]
     if file.name == "":
-        return jsonify({"error": "没有选择文件"}, 400)
+        return jsonify(msg="没有选择文件", status=400)
 
     tags = request.form.get("tags", "")  # 获取标签数据
 
@@ -80,7 +88,7 @@ async def upload_image(request: Request):
         "tags": new_image["tags"],
     }
 
-    return jsonify({"message": "图片上传成功", "image": new_image}, 201)
+    return jsonify(new_image, '上传成功', 201)
 
 @app.get("/api/images")
 async def get_images(request: Request):
@@ -122,7 +130,7 @@ async def get_image(request: Request, image_id: int):
         filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
         return await response.file(filepath)  # 使用文件路径发送图片
     else:
-        return jsonify({"error": "图片未找到"}, 404)
+        return jsonify(None, '图片未找到', 404)
        
 @app.get("/api/image/tag")
 async def get_image_by_tag(request: Request):
@@ -159,9 +167,16 @@ async def delete_image(request: Request, image_id):
 
         # 删除数据库记录
         db.delete(image_id)
-        return jsonify({"message": "图片删除成功"})
+        return jsonify(None, "图片删除成功", 204)
     else:
-        return jsonify({"error": "图片未找到"}, 404)
+        return jsonify(None, "图片未找到", 404)
+
+@app.patch('/api/image/<img_id:int>')
+@appkey_required
+def update_img(request:Request, img_id):
+    tags = request.args.get('tags', '').split(',')
+    db.modify(img_id, tags)
+    return jsonify(msg='完成')
 
 @app.route("/<path:path>")
 @app.route('/', name='index')
@@ -170,14 +185,14 @@ async def static_file(request: Request, path="/index.html"):
     # 构建请求的文件路径
     file_path = 'files/' + path
     if ".." in file_path:
-        return jsonify({'code':403})
+        return jsonify(msg='文件不存在', status=404)
 
     # 验证请求的文件路径确实是文件且存在
     if os.path.isfile(file_path):
         return await response.file(file_path)   
     else:
         # 如果文件不存在，返回 404 错误
-        return jsonify({'code':404})
+        return jsonify(msg='文件不存在', status=404)
 
 if __name__ == '__main__':
     cpu_count = multiprocessing.cpu_count()

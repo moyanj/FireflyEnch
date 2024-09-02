@@ -92,7 +92,7 @@
                 processData: false,
                 success: function(response) {
                     $('#uploadResult').show();
-                    $('#successMessage').text(response.message);
+                    alert(response.message);
 
                     var imageUrl = response.image.url;
                     var imageHtml = '<img src="' + imageUrl + '" class="preview-image">';
@@ -101,7 +101,7 @@
                     $('#uploadForm')[0].reset();
                 },
                 error: function(error) {
-                    var errorMessage = error.responseJSON.error || '图片上传失败';
+                    var errorMessage = error.responseJSON.message || '图片上传失败';
                     alert(errorMessage);
                 }
             });

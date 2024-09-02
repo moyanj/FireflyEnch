@@ -76,10 +76,11 @@
                 }
                 if (currentPage == data.page) {
                     renderCards(data.images);
+                    currentPage++;
                     // 初始化懒加载
                     lazyload();
                 }
-                currentPage++;
+                
             });
             
             
