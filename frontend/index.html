@@ -71,11 +71,11 @@
                 return;
             }
             fetchImages(currentPage).done(function(data) {
-                if (data.last) {
+                if (data.data.last) {
                     last = true;
                 }
-                if (currentPage == data.page) {
-                    renderCards(data.images);
+                if (currentPage == data.data.page) {
+                    renderCards(data.data.images);
                     currentPage++;
                     // 初始化懒加载
                     lazyload();

@@ -79,11 +79,11 @@
         
         function updatePage() {
             fetchImages().done(function(data) {
-                if (data.total <= 0) {
+                if (data.data.total <= 0) {
                     alert("没有结果");
                     return;
                 }
-                renderCards(data.images);
+                renderCards(data.data.images);
             });
         }
 
