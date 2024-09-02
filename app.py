@@ -1,6 +1,5 @@
 from sanic import Sanic, Request, response
-from sanic_cors import CORS
-from sanic_openapi import openapi2_blueprint, doc
+from sanic_ext import openapi as doc
 from urllib.parse import urljoin
 from functools import wraps
 from db import db
@@ -17,16 +16,20 @@ import mjson
 Sanic.start_method = "fork"
 
 app = Sanic("FireflyEnch")
-CORS(app)
-app.blueprint(openapi2_blueprint)
 
 UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FOLDER", "/mnt/data"))
 SECRET_KEY = "ce4d82a91eeb6e2af36cd291d48f1de15d424417d2a6eb0778be51b9acf1f77eee3adc4df2d44555bfd79187c18daa4187ecd0c1477d2474da42be3ebc8c74e4"
 
 app.config.FORWARDED_FOR_HEADER = "X-FORWARDED-FOR"
-app.config["API_HOST"] = "img.moapps.top" 
-app.config["API_SCHEMES"] = ["https", "http"]
-app.config["API_TITLE"] = "FireflyEnch-API"
+app.config['OAS_UI_DEFAULT'] = 'swagger'
+app.config['OAS_UI_REDOC'] = False
+app.config.HEALTH = True
+app.config.HEALTH_ENDPOINT = True
+
+app.ext.openapi.describe(
+    "FireflyEnch API",
+    '2.3.0'
+)
 
 def jsonify(data=None, msg="OK", status=200):
     res = {
@@ -59,11 +62,9 @@ async def exc(request, exception):
     return jsonify(msg="服务器出错", status=500)
     
 @app.post("/api/upload")
+@doc.exclude(True)
 @appkey_required
 async def upload_image(request: Request):
-    """
-    上传图片
-    """
     if "image" not in request.files:
         return jsonify(msg="请求中没有文件部分", status=400)
 
@@ -105,6 +106,14 @@ async def upload_image(request: Request):
 async def get_images(request: Request):
     """
     带分页的图片获取
+    openapi:
+    ---
+    parameters: 
+      - name: page
+        in: query
+        description: 页码
+        required: true
+        type: integer
     """
     page = int(request.args.get("page", 1))
     
@@ -139,6 +148,14 @@ async def get_images(request: Request):
 async def random_image(request: Request):
     """
     获取随机图片
+    openapi:
+    ---
+    parameters: 
+      - name: info
+        in: query
+        description: 是否只获取图片信息
+        required: false
+        
     """
     max_length = db.db.__len__() # 获取最大id
     idx = random.randint(1, max_length) # 随机选择
@@ -154,6 +171,19 @@ async def random_image(request: Request):
 async def get_image(request: Request, image_id: int):
     """
     根据ID从数据库中获取图片（信息）
+    openapi:
+    ---
+    parameters: 
+      - name: info
+        in: query
+        description: 是否只获取图片信息
+        required: false
+      - name: image_id
+        in: path
+        description: 图片id
+        required: true
+        type: integer
+    
     """
     image = db.get(image_id)
     
@@ -171,6 +201,14 @@ async def get_image(request: Request, image_id: int):
 async def get_image_by_tag(request: Request):
     """
     根据Tag获取图片
+    openapi:
+    ---
+    parameters: 
+      - name: tag
+        in: query
+        description: 图片tag，以英文逗号分割
+        required: false
+          
     """
     tags = request.args.get("tag")
     tags = tags.split(",")
@@ -189,6 +227,7 @@ async def get_image_by_tag(request: Request):
 
 # 删除指定ID图片的路由
 @app.delete("/api/image/<image_id:int>",)
+@doc.exclude(True)
 @appkey_required
 async def delete_image(request: Request, image_id):
     """
@@ -209,6 +248,7 @@ async def delete_image(request: Request, image_id):
         return jsonify(None, "图片未找到", 404)
 
 @app.patch("/api/image/<img_id:int>")
+@doc.exclude(True)
 @appkey_required
 def update_img(request:Request, img_id):
     """
@@ -219,6 +259,7 @@ def update_img(request:Request, img_id):
     return jsonify(msg="完成")
 
 @app.delete("/api/clear")
+@doc.exclude(True)
 @appkey_required
 async def clear_cache(request: Request):
     """
@@ -227,7 +268,7 @@ async def clear_cache(request: Request):
     db.db.clear_cache()
     return jsonify()
     
-@app.route("/<path:path>")
+@app.route("/<path:path>", name='files')
 @app.route("/", name="index")
 @doc.exclude(True)
 async def static_file(request: Request, path="/index.html"):
@@ -242,6 +283,7 @@ async def static_file(request: Request, path="/index.html"):
     else:
         # 如果文件不存在，返回 404 错误
         return jsonify(msg="文件不存在", status=404)
+
 
 if __name__ == "__main__":
     cpu_count = multiprocessing.cpu_count()
