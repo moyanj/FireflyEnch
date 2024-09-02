@@ -25,6 +25,7 @@ app.config["OAS_UI_DEFAULT"] = "swagger"
 app.config["OAS_UI_REDOC"] = False
 app.config.HEALTH = True
 app.config.HEALTH_ENDPOINT = True
+app.config.CORS_ORIGINS = "*"
 
 app.ext.openapi.describe("FireflyEnch API", "2.3.0")
 

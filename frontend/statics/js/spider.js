@@ -8,7 +8,7 @@ var $BP = {
         if ($BP.isBot()) {
             return true; // 是搜索引擎
         } else {
-            return true; // 不是搜索引擎
+            return false; // 不是搜索引擎
         }
     }
 }
