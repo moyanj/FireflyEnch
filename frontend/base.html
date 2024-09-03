@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 
 <head>
     <meta charset="UTF-8">
@@ -9,7 +9,7 @@
     <meta name="keywords" content="图片,米哈游,原神,崩坏星穹铁道,二次元,画廊,收集">
     <meta name="copyright" content="MoYan">
     <meta name="renderer" content="webkit">
-    
+
     <link rel="icon" href="favicon.png" type="image/png">
 
     <title>FireflyEnch - {% block title %}{% endblock title %} </title>
@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="/statics/css/base.css">
     <link rel="stylesheet" href="statics/css/bs4pop-1.1.css">
     {% block css %}{% endblock css %}
-    
+
     {% block header %}{% endblock header %}
 </head>
 
@@ -25,15 +25,16 @@
     <!-- 导航栏 -->
     <nav class="navbar navbar-expand-lg navbar-light cont">
         <div class="container">
-            <a class="navbar-brand fs-4" href="/">FireflyEnch</a>
-            <a class="nav-item nav-link text-secondary" href="/search.html">搜索</a>
-            <a class="nav-item nav-link text-secondary" href="/about.html">关于</a>
+            <h1><a class="navbar-brand fs-4" href="/">FireflyEnch</a></h1>
+            <h2 class="nav-item nav-link"><a class="nav-link link-secondary" href="/search.html">搜索</a></h2>
+            <!--<h2 class="nav-item nav-link"><a class="nav-link link-secondary" href="/toolbox.html">工具箱</a></h2>-->
+            <h2 class="nav-item nav-link"><a class="nav-link link-secondary" href="/about.html">关于</a></h2>
         </div>
-        
+
     </nav>
 
     {% block content %}{% endblock content %}
-    
+
     <script src="/statics/js/jquery-3.7.1.min.js"></script>
     <script src="/statics/js/lozad-1.16.0.min.js"></script>
     <script src="/statics/js/bootstrap.bundle.min.js"></script>

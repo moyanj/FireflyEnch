@@ -91,10 +91,10 @@
                 contentType: false,
                 processData: false,
                 success: function(response) {
-                    $('#uploadResult').show();
+                    $('#uploadResult').show()
                     alert(response.message);
     
-                    var imageUrl = response.image.url;
+                    var imageUrl = response.url;
                     var imageHtml = '<img src="' + imageUrl + '" class="preview-image">';
                     $('#imagePreview').html(imageHtml);
     

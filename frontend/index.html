@@ -53,24 +53,25 @@
             const gallery = $('#gallery');
             itemsToDisplay.forEach(item => {
                 const card = $(`
-                <div class="col-md-3 col-sm-6 col-6">
-                    <div class="card">
-                        <a href="${base_url}/api/image/${item.id}"><img src="statics/img/loading.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazy"></a>
-                        <div class="card-body">
-                            <p class="card-text">#${item.tags.join(', #')}</p>
-                        </div>
-                    </div>
+        <div class="col-md-3 col-sm-6 col-6">
+            <div class="card">
+                <a href="${base_url}/api/image/${item.id}"><img src="statics/img/loading.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazy"></a>
+                <div class="card-body">
+                    ${item.tags.map(tag => `<a href="/search.html?tag=${encodeURIComponent(tag)}" class="card-text">#${tag}</a>`).join(',')}
                 </div>
-            `);
+            </div>
+        </div>
+        `);
                 gallery.append(card);
             });
-
         }
-        function lazyload(){
+
+        function lazyload() {
             const el = document.querySelectorAll('.lazy');
             const observer = lozad(el); // passing a `NodeList` (e.g. `document.querySelectorAll()`) is also valid
             observer.observe();
         }
+
         function loadMoreImages() {
             if (last) {
                 return;
@@ -85,9 +86,9 @@
                     // 初始化懒加载
                     lazyload();
                 }
-                
+
             });
-            
+
         }
 
         // 监听滚动事件
@@ -97,7 +98,7 @@
             }
         });
         loadMoreImages();
-        
+
     });
 </script>
 {% endblock js %}
