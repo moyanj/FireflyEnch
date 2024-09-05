@@ -10,6 +10,7 @@ import hashlib
 import random
 import math
 import multiprocessing
+import traceback
 import mjson
 
 
@@ -57,6 +58,7 @@ def appkey_required(view_func):
 
 @app.exception(Exception)
 async def exc(request, exception):
+    traceback.print_last()
     return jsonify(msg="服务器出错", status=500)
 
 
