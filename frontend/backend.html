@@ -83,22 +83,22 @@
             var formData = new FormData();
             formData.append('image', $('#image')[0].files[0]);
             formData.append('tags', $('#tags').val());
-    
+            
             $.ajax({
                 type: 'POST',
                 url: '{{ base_url }}/api/upload?appkey=' + adminPassword,
                 data: formData,
-                contentType: false,
+                contentType: false,                
+                dataType: 'json',
                 processData: false,
                 success: function(response) {
                     $('#uploadResult').show()
                     alert(response.message);
     
-                    var imageUrl = response.url;
+                    var imageUrl = response.data.url;
                     var imageHtml = '<img src="' + imageUrl + '" class="preview-image">';
                     $('#imagePreview').html(imageHtml);
     
-                    $('#uploadForm')[0].reset();
                 },
                 error: function(error) {
                     var errorMessage = error.responseJSON.message || '图片上传失败';
