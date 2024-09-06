@@ -10,7 +10,7 @@ import hashlib
 import random
 import math
 import multiprocessing
-import traceback
+from sanic.log import logger
 import mjson
 
 
@@ -58,7 +58,7 @@ def appkey_required(view_func):
 
 @app.exception(Exception)
 async def exc(request, exception):
-    print(exception)
+    logger.error(f"Exception: {exception}", exc_info=True)
     return jsonify(msg="服务器出错", status=500)
 
 
