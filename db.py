@@ -4,7 +4,42 @@ import io
 from tinydb import TinyDB, Storage, Query
 from typing import Dict, Any, Optional
 import threading
+import time
 
+class Snowflake:
+    def __init__(self):
+        self.sequence = 0
+        self.last_timestamp = -1
+        self.last_check_time = 0  # 新增变量，记录上一次检查的时间戳
+
+        # 41位时间戳
+        self.twepoch = 1718869600
+
+    def _timestamp(self):
+        return int(time.time())
+
+    def _til_next_millis(self):
+        timestamp = self._timestamp()
+        while timestamp <= self.last_timestamp:
+            if (timestamp - self.last_check_time) > 5:  # 避免过于频繁的循环
+                self.last_check_time = timestamp
+                break
+            timestamp = self._timestamp()
+        self.last_timestamp = timestamp
+        return timestamp
+
+    def get_id(self):
+        timestamp = self._timestamp()
+        if self.last_timestamp == timestamp:
+            self.sequence = (self.sequence + 1) & 4095
+            if self.sequence == 0:
+                timestamp = self._til_next_millis()
+        else:
+            self.sequence = 0
+
+        self.last_timestamp = timestamp
+
+        return ((timestamp - self.twepoch) << 12) | self.sequence
 
 class FastJSONStorage(Storage):
     def __init__(
@@ -94,6 +129,7 @@ class Base:
         )
         self.db = self.rootdb.table(name, cache_size=32)
         self.q = Query()
+        self.snow = Snowflake()
 
     def search(self, expr):
         return self.db.search(expr)
@@ -108,7 +144,7 @@ class Base:
 class Images(Base):
 
     def add(self, path, tag):
-        max_id = str(self.db.__len__() + 1)
+        max_id = str(self.snow.get_id())
         d = {"id": max_id, "path": path, "tags": tag.split(",")}
         self.insert(d)
         return d
