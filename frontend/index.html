@@ -54,10 +54,10 @@
             itemsToDisplay.forEach(item => {
                 const card = $(`
         <div class="col-md-3 col-sm-6 col-6">
-            <div class="card">
-                <a href="${base_url}/api/image/${item.id}"><img src="statics/img/loading.webp" data-src="${base_url}/api/image/${item.id}" class="card-img-top lazy"></a>
-                <div class="card-body">
-                    ${item.tags.map(tag => `<a href="/search.html?tag=${encodeURIComponent(tag)}" class="card-text">#${tag}</a>`).join(',')}
+            <div class="cards">
+                <a href="${base_url}/api/image/${item.id}"><img src="statics/img/loading.webp" data-src="${base_url}/api/image/${item.id}" class="cards-img lazy"></a>
+                <div class="cards-body">
+                    ${item.tags.map(tag => `<a href="/search.html?tag=${encodeURIComponent(tag)}" class="cards-text">#${tag}</a>`).join(',')}
                 </div>
             </div>
         </div>

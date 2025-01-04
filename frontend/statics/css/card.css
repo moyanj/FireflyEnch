@@ -1,4 +1,4 @@
-.card {
+.cards {
     margin-bottom: 1vh;
     border: 1px solid #ddd;
     border-radius: 8px;
@@ -8,25 +8,25 @@
     /* 默认背景色为白色 */
 }
 
-.card img {
-    width: 100%;
+.cards-img {
     height: 200px;
+    width: 100%;
     object-fit: cover;
 }
 
-.card-body {
+.cards-body {
     padding: 10px;
 }
 
-.card-text {
+.cards-text {
     font-size: 0.7rem;
     color: #777;
 }
 
 /* 暗黑模式下的调整 */
 @media (prefers-color-scheme: dark) {
-    .card {
-        background-color: #333;
+    .cards {
+        background-color: #222;
         /* 暗色背景 */
         border-color: #555;
         /* 暗色边框 */
@@ -34,9 +34,14 @@
 
     }
 
-    .card-text {
+    .cards-text {
         color: #aaa;
         /* 暗色下的文字颜色 */
+    }
+
+    .cards-body {
+        background-color: #222;
+        /* 暗色背景 */
     }
 
 }
