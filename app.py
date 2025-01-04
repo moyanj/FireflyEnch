@@ -29,7 +29,7 @@ app.config.HEALTH = True
 app.config.HEALTH_ENDPOINT = True
 app.config.CORS_ORIGINS = "*"
 
-app.ext.openapi.describe(config["name"], "2.3.0")
+app.ext.openapi.describe(config["name"], "2.4.6")
 
 
 def jsonify(data=None, msg="OK", status=200):
