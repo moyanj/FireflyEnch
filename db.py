@@ -3,8 +3,6 @@ import aiosqlite
 from mjson import json
 import time
 
-config = json.load(open("config.json"))
-
 
 class Snowflake:
     def __init__(self):
