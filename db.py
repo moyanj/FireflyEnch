@@ -61,8 +61,6 @@ class Images(AsyncBase):
             return result[0]  # 返回总数
             
     def raw2dict(self, data):
-        data = data[0]
-        print(data)
         return {
             'id':data[0],
             'tags':json.loads(data[1]),
@@ -96,7 +94,7 @@ class Images(AsyncBase):
             data = await cursor.fetchall()
             l = []    
             for i in data:
-                l.append(self.raw2dict(data))
+                l.append(self.raw2dict(i))
             return l
 
     async def get_by_tag(self, tag):

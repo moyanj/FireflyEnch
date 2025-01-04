@@ -94,7 +94,7 @@ async def upload_image(request: Request):
     hashs.update(file.body)  # Read file content asynchronously
     filename = f"{hashs.hexdigest()}{ext}"
 
-    filepath = await save_file(file, filename)
+    await save_file(file, filename)
 
     # 插入图片信息到数据库
     new_image = await db.add(filename, tags)
@@ -200,7 +200,7 @@ async def get_image(request: Request, image_id: int):
     if image:
         if request.args.get("info"):
             return jsonify(image)
-
+        print(image)
         filepath = os.path.join(UPLOAD_FOLDER, image["fn"])
         return await response.file_stream(filepath)  # 使用文件路径发送图片
     else:

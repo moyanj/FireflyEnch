@@ -22,4 +22,11 @@ docker run -p 8080:8080 -v /path/to/images:/moyan/imgs -v /path/to/config.json:/
 
 改 `config.json` 文件即可。
 
-## 截图
+## 技术栈
+
+- Sanic
+- Jquery
+- Bootstrap
+- Aiofiles
+- Jinja2
+- Aiosqlite
