@@ -62,6 +62,10 @@ async def exc(request, exception):
     logger.error(f"Exception: {exception}", exc_info=True)
     return jsonify(msg="服务器出错", status=500)
 
+async def before_server_start(app, loop):
+    await db.init_db()
+    
+app.register_listener(before_server_start, "main_process_start")
 
 @app.post("/api/upload")
 @doc.exclude(True)
@@ -75,7 +79,7 @@ async def upload_image(request: Request):
     if file.name == "":
         return jsonify(msg="没有选择文件", status=400)
 
-    tags = request.form.get("tags", "")  # 获取标签数据
+    tags = request.form.get("tags", "").split(',')  # 获取标签数据
 
     # 确保上传目录存在
     if not os.path.exists(UPLOAD_FOLDER):
@@ -93,7 +97,7 @@ async def upload_image(request: Request):
     filepath = await save_file(file, filename)
 
     # 插入图片信息到数据库
-    new_image = db.add(filepath, tags)
+    new_image = await db.add(filename, tags)
     new_image = {
         "id": new_image["id"],
         "url": urljoin(
@@ -128,7 +132,7 @@ async def get_images(request: Request):
     offset = (page - 1) * 20
 
     # 连接数据库
-    all_data = db.db.all()
+    all_data = await db.all()
     last = False
 
     # 判断是否为最后一页
@@ -142,11 +146,10 @@ async def get_images(request: Request):
         data = all_data[offset : offset + 20]
 
     random.shuffle(data)
-    image_list = [{"id": item["id"], "tags": item["tags"]} for item in data]
-
+    
     # 返回分页结果
     return jsonify(
-        {"total": len(image_list), "page": page, "images": image_list, "last": last}
+        {"total": len(data), "page": page, "images": data, "last": last}
     )
 
 
@@ -163,14 +166,14 @@ async def random_image(request: Request):
         required: false
 
     """
-    max_length = db.db.__len__()  # 获取最大id
+    max_length = await db.len()  # 获取最大id
     idx = random.randint(1, max_length)  # 随机选择
-    image = db.get(idx)
+    image = await db.get(idx)
 
     if request.args.get("info", "0") != 0:
-        return jsonify({"id": image[0]["id"], "tags": image[0]["tags"]})
+        return jsonify(image)
 
-    filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
+    filepath = os.path.join(UPLOAD_FOLDER, image["path"])
     return await response.file_stream(filepath)  # 使用文件路径发送图片
 
 
@@ -192,13 +195,13 @@ async def get_image(request: Request, image_id: int):
         type: integer
 
     """
-    image = db.get(image_id)
+    image = await db.get(image_id)
 
-    if len(image) >= 1:
-        if request.args.get("info", "0") != "0":
-            return jsonify({"id": image[0]["id"], "tags": image[0]["tags"]})
+    if image:
+        if request.args.get("info"):
+            return jsonify(image)
 
-        filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
+        filepath = os.path.join(UPLOAD_FOLDER, image["fn"])
         return await response.file_stream(filepath)  # 使用文件路径发送图片
     else:
         return jsonify(None, "图片未找到", 404)
@@ -221,8 +224,8 @@ async def get_image_by_tag(request: Request):
     tags = tags.split(",")
     ret = []
     for tag in tags:
-        data = db.get_by_tag(tag)
-        ret += [{"id": item["id"], "tags": item["tags"]} for item in data]
+        ret += await db.get_by_tag(tag)
+        
     return jsonify(
         {
             "total": len(ret),
@@ -241,16 +244,16 @@ async def delete_image(request: Request, image_id):
     """
     删除指定图片
     """
-    image = db.get(image_id)
-    if len(image) >= 1:
+    image = await db.get(image_id)
+    if image:
         # 删除文件
-        filepath = os.path.join(UPLOAD_FOLDER, image[0]["path"])
+        filepath = os.path.join(UPLOAD_FOLDER, image["fn"])
 
         if os.path.exists(filepath):
             if request.args.get("rmfile", "1") == "1":
                 os.remove(filepath)
         # 删除数据库记录
-        db.delete(image_id)
+        await db.delete(image_id)
         return jsonify(None, "图片删除成功", 204)
     else:
         return jsonify(None, "图片未找到", 404)
@@ -259,12 +262,12 @@ async def delete_image(request: Request, image_id):
 @app.patch("/api/image/<img_id:int>")
 @doc.exclude(True)
 @appkey_required
-def update_img(request: Request, img_id):
+async def update_img(request: Request, img_id):
     """
     修改一张图片的tag
     """
     tags = request.args.get("tags", "").split(",")
-    db.modify(img_id, tags)
+    await db.modify(img_id, tags)
     return jsonify(msg="完成")
 
 
@@ -275,7 +278,6 @@ async def clear_cache(request: Request):
     """
     清除数据库缓存
     """
-    db.db.clear_cache()
     return jsonify()
 
 

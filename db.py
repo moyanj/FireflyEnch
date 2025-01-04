@@ -1,9 +1,6 @@
 import os
-import mjson as json
-import io
-from tinydb import TinyDB, Storage, Query
-from typing import Dict, Any, Optional
-import threading
+import aiosqlite
+from mjson import json
 import time
 
 config = json.load(open("config.json"))
@@ -45,125 +42,83 @@ class Snowflake:
         return ((timestamp - self.twepoch) << 12) | self.sequence
 
 
-class FastJSONStorage(Storage):
-    def __init__(
-        self,
-        path: str,
-        create_dirs=False,
-        encoding=None,
-        access_mode="r+",
-        write_threshold=1,
-        force=False,
-        **kwargs
-    ):
-        super().__init__()
-        self._mode = access_mode
-        self.kwargs = kwargs
-        self.force = force
-        self.write_threshold = write_threshold  # 指定写入阈值
-        self.write_counter = 0
-        self._lock = threading.Lock()  # 添加互斥锁
-
-        if any(
-            [character in self._mode for character in ("+", "w", "a")]
-        ):  # any of the writing modes
-            self.touch(path, create_dirs=create_dirs)
-        self._handle = open(path, mode=self._mode, encoding=encoding)
-
-    def close(self) -> None:
-        self._handle.close()
-
-    def touch(self, path: str, create_dirs: bool):
-        if create_dirs:
-            base_dir = os.path.dirname(path)
-
-            if not os.path.exists(base_dir):
-                os.makedirs(base_dir)
-
-        with open(path, "a"):
-            pass
-
-    def read(self) -> Optional[Dict[str, Dict[str, Any]]]:
-        self._lock.acquire()
-        self._handle.seek(0, os.SEEK_END)
-        size = self._handle.tell()
-
-        if not size:
-            self._lock.release()
-            return None
-        else:
-            self._handle.seek(0)
-
-            ret = json.loads(self._handle.read())
-            self._lock.release()
-            return ret
-
-    def write(self, data: Dict[str, Dict[str, Any]]):
-        with self._lock:  # 加锁
-            self.write_counter += 1
-            if self.write_counter == self.write_threshold or self.force:
-                self._handle.seek(0)
-
-                serialized = json.dumps(data, **self.kwargs)
-
-                try:
-                    self._handle.write(serialized)
-                except io.UnsupportedOperation:
-                    raise IOError(
-                        'Cannot write to the database. Access mode is "{0}"'.format(
-                            self._mode
-                        )
-                    )
-
-                self._handle.flush()
-                os.fsync(self._handle.fileno())
-
-                self._handle.truncate()
-                self.write_counter = 0
-
-
-class Base:
-    def __init__(self, name, write_threshold=2, force=False):
-        self.rootdb = TinyDB(
-            config["db_file"],
-            storage=FastJSONStorage,
-            write_threshold=write_threshold,
-            force=False,
-        )
-        self.db = self.rootdb.table(name, cache_size=32)
-        self.q = Query()
+class AsyncBase:
+    def __init__(self, name):
+        os.makedirs("db", exist_ok=True)
+        self.db_name = f"db/{name}.db"
+        self.name = name
         self.snow = Snowflake()
+        
+    async def init_db(self):
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute(f"CREATE TABLE IF NOT EXISTS {self.name} (id TEXT PRIMARY KEY, tags TEXT, fn TEXT)")
+            await db.commit()
 
-    def search(self, expr):
-        return self.db.search(expr)
+class Images(AsyncBase):
+    async def len(self):
+        query = f"SELECT COUNT(*) FROM {self.name}"
+        async with aiosqlite.connect(self.db_name) as db:
+            cursor = await db.execute(query)
+            result = await cursor.fetchone()
+            return result[0]  # 返回总数
+            
+    def raw2dict(self, data):
+        data = data[0]
+        print(data)
+        return {
+            'id':data[0],
+            'tags':json.loads(data[1]),
+            'fn':data[2]
+        }
+        
+    async def add(self, fn, tag):
+        idx = str(self.snow.get_id())
+        tag = json.dumps(tag)
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute(f"INSERT INTO {self.name} (id, tags, fn) VALUES (?, ?, ?)", (idx, tag, fn))
+            await db.commit()
+        return await self.get(idx)
+        
+    async def delete(self, ids):
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute(f"DELETE FROM {self.name} WHERE id = ?", (ids,))
+            await db.commit()
 
-    def insert(self, data):
-        self.db.insert(data)
+    async def get(self, idx):
+        query = f"SELECT * FROM {self.name} WHERE id = ?"
+        async with aiosqlite.connect(self.db_name) as db:
+            cursor = await db.execute(query, (idx,))
+            data = await cursor.fetchone()
+            return self.raw2dict(data)
 
-    def remove(self, query):
-        self.db.remove(query)
+    async def all(self):
+        query = f"SELECT * FROM {self.name}"
+        async with aiosqlite.connect(self.db_name) as db:
+            cursor = await db.execute(query)
+            data = await cursor.fetchall()
+            l = []    
+            for i in data:
+                l.append(self.raw2dict(data))
+            return l
 
+    async def get_by_tag(self, tag):
+        query = f"SELECT * FROM {self.name} WHERE tags LIKE ?"
+        data = await self.search(query, ('%' + tag + ',%',))
+        l = []
+        for i in data:
+            l.append(self.raw2dict(i))
+        return l
 
-class Images(Base):
+    async def modify(self, idx, tags):
+        query = f"UPDATE {self.name} SET tags = ? WHERE id = ?"
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute(query, (tags, idx))
+            await db.commit()
 
-    def add(self, path, tag):
-        max_id = str(self.snow.get_id())
-        d = {"id": max_id, "path": path, "tags": tag.split(",")}
-        self.insert(d)
-        return d
-
-    def delete(self, ids):
-        self.db.remove(self.q.id == str(ids))
-
-    def get(self, idx):
-        return self.search(self.q.id == str(idx))
-
-    def get_by_tag(self, tag):
-        return self.search(self.q.tags.any(tag))
-
-    def modify(self, idx, tags):
-        self.db.update({"tags": tags}, self.q.id == idx)
-
+    async def search(self, query, params):
+        async with aiosqlite.connect(self.db_name) as db:
+            cursor = await db.execute(query, params)
+            return await cursor.fetchall()
 
 # 创建 Images 类的实例
-db = Images("images", 1)
+db = Images("images")
