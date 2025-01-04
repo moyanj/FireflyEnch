@@ -6,13 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="version" content="{{ version }}">
     <meta name="build" content="{{ build_time }}">
-    <meta name="keywords" content="图片,米哈游,原神,崩坏星穹铁道,二次元,画廊,收集">
+    <meta name="keywords" content="图片,画廊,收集">
     <meta name="copyright" content="MoYan">
     <meta name="renderer" content="webkit">
 
     <link rel="icon" href="favicon.png" type="image/png">
 
-    <title>FireflyEnch - {% block title %}{% endblock title %} </title>
+    <title>{{ name }} - {% block title %}{% endblock title %} </title>
     <link href="/statics/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/statics/css/base.css">
     <link rel="stylesheet" href="statics/css/bs4pop-1.1.css">
@@ -25,7 +25,7 @@
     <!-- 导航栏 -->
     <nav class="navbar navbar-expand-lg navbar-light cont">
         <div class="container">
-            <h1><a class="navbar-brand fs-4" href="/">FireflyEnch</a></h1>
+            <h1><a class="navbar-brand fs-4" href="/">{{ name }}</a></h1>
             <h2 class="nav-item nav-link"><a class="nav-link link-secondary" href="/search.html">搜索</a></h2>
             <!--<h2 class="nav-item nav-link"><a class="nav-link link-secondary" href="/toolbox.html">工具箱</a></h2>-->
             <h2 class="nav-item nav-link"><a class="nav-link link-secondary" href="/about.html">关于</a></h2>

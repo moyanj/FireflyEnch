@@ -6,6 +6,9 @@ from typing import Dict, Any, Optional
 import threading
 import time
 
+config = json.load(open("config.json"))
+
+
 class Snowflake:
     def __init__(self):
         self.sequence = 0
@@ -40,6 +43,7 @@ class Snowflake:
         self.last_timestamp = timestamp
 
         return ((timestamp - self.twepoch) << 12) | self.sequence
+
 
 class FastJSONStorage(Storage):
     def __init__(
@@ -120,9 +124,8 @@ class FastJSONStorage(Storage):
 
 class Base:
     def __init__(self, name, write_threshold=2, force=False):
-        os.makedirs("db", exist_ok=True)
         self.rootdb = TinyDB(
-            "db/DB.pcdb",
+            config["db_file"],
             storage=FastJSONStorage,
             write_threshold=write_threshold,
             force=False,

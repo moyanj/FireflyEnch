@@ -1,0 +1,7 @@
+{
+    "upload_dir": "./imgs",
+    "appkey": "121212",
+    "name": "FireflyEnchs",
+    "port":8896,
+    "db_file": "./db/db.pcdbs"
+}

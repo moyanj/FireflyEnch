@@ -12,14 +12,15 @@ import math
 import multiprocessing
 from sanic.log import logger
 import mjson
+import json
 
-
+config = json.load(open("config.json"))
 Sanic.start_method = "fork"
 
-app = Sanic("FireflyEnch")
+app = Sanic(config["name"])
 
-UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FOLDER", "/mnt/data"))
-SECRET_KEY = "ce4d82a91eeb6e2af36cd291d48f1de15d424417d2a6eb0778be51b9acf1f77eee3adc4df2d44555bfd79187c18daa4187ecd0c1477d2474da42be3ebc8c74e4"
+UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FOLDER", config["upload_dir"]))
+SECRET_KEY = config["appkey"]
 
 app.config.FORWARDED_FOR_HEADER = "X-FORWARDED-FOR"
 app.config["OAS_UI_DEFAULT"] = "swagger"
@@ -28,7 +29,7 @@ app.config.HEALTH = True
 app.config.HEALTH_ENDPOINT = True
 app.config.CORS_ORIGINS = "*"
 
-app.ext.openapi.describe("FireflyEnch API", "2.3.0")
+app.ext.openapi.describe(config["name"], "2.3.0")
 
 
 def jsonify(data=None, msg="OK", status=200):
@@ -119,7 +120,7 @@ async def get_images(request: Request):
       - name: all
         in: query
         description: 是否返回全部
-        
+
     """
     page = int(request.args.get("page", 1))
 
@@ -133,16 +134,16 @@ async def get_images(request: Request):
     # 判断是否为最后一页
     if math.ceil(len(all_data) / 20) <= page:
         last = True
-    
-    if request.args.get('all', None):
+
+    if request.args.get("all", None):
         all = all_data
         last = True
     else:
         data = all_data[offset : offset + 20]
-        
+
     random.shuffle(data)
     image_list = [{"id": item["id"], "tags": item["tags"]} for item in data]
-    
+
     # 返回分页结果
     return jsonify(
         {"total": len(image_list), "page": page, "images": image_list, "last": last}
@@ -298,4 +299,4 @@ async def static_file(request: Request, path="/index.html"):
 if __name__ == "__main__":
     cpu_count = multiprocessing.cpu_count()
 
-    app.run(host="0.0.0.0", port=8896, workers=cpu_count * 2 + 1)
+    app.run(host="0.0.0.0", port=config["port"], workers=cpu_count * 2 + 1)

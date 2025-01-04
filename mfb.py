@@ -2,7 +2,10 @@ import os
 import shutil
 import time
 import click
+import json
 from jinja2 import Environment, FileSystemLoader
+
+config = json.load(open("config.json"))
 
 
 class BasePlugin:
@@ -104,6 +107,7 @@ def build(renderer, other={}):
         "type": "rel",
         "build_timestamp": time.time(),
         "base_url": "",
+        "name": config["name"],
     }
     context.update(other)
     # 渲染模板
