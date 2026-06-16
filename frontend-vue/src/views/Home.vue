@@ -22,11 +22,8 @@ async function fetchImages() {
     }
 
     const { data } = res
-    if (data.images.length > 0) {
-      // 随机排序新加载的图片
-      const shuffled = [...data.images].sort(() => Math.random() - 0.5)
-      images.value.push(...shuffled)
-    }
+
+    images.value.push(...data.images);
     hasMore.value = !data.last
     currentPage.value = data.page + 1
   } catch (e) {
@@ -34,12 +31,9 @@ async function fetchImages() {
   }
 }
 
-async function loadMore() {
-  await fetchImages()
-}
 
 // 无限滚动
-const { isLoading } = useInfiniteScroll(loadMore)
+const { isLoading } = useInfiniteScroll(fetchImages)
 
 onMounted(async () => {
   await fetchImages()
@@ -54,12 +48,8 @@ onMounted(async () => {
       {{ errorMsg }}
     </div>
 
-    <ImageGallery
-      :images="images"
-      :loading="isInitialLoading || isLoading"
-      :has-more="hasMore"
-      @load-more="loadMore"
-    />
+    <ImageGallery :images="images" :loading="isInitialLoading || isLoading" :has-more="hasMore"
+      @load-more="fetchImages" />
   </div>
 </template>
 
