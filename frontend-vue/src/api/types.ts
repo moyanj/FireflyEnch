@@ -35,3 +35,8 @@ export interface UploadData {
   url: string
   tags: string[]
 }
+
+/** 登录响应 */
+export interface LoginData {
+  token: string
+}

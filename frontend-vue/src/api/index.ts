@@ -1,4 +1,4 @@
-import type { ApiResponse, ImagesListData, TagSearchData, UploadData, Image } from './types'
+import type { ApiResponse, ImagesListData, TagSearchData, UploadData, Image, LoginData } from './types'
 
 const API_BASE = '/api'
 
@@ -8,6 +8,33 @@ async function request<T>(
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
   const res = await fetch(`${API_BASE}${path}`, options)
+  return res.json()
+}
+
+/** 获取验证码图片 */
+export async function getCaptcha(): Promise<{ captchaId: string; imageUrl: string }> {
+  const res = await fetch(`${API_BASE}/captcha`)
+  const captchaId = res.headers.get('X-Captcha-Id') || ''
+  const blob = await res.blob()
+  const imageUrl = URL.createObjectURL(blob)
+  return { captchaId, imageUrl }
+}
+
+/** 登录验证 */
+export async function login(
+  appkey: string,
+  captcha: string,
+  captchaId: string
+): Promise<ApiResponse<LoginData>> {
+  const formData = new FormData()
+  formData.append('appkey', appkey)
+  formData.append('captcha', captcha)
+  formData.append('captcha_id', captchaId)
+
+  const res = await fetch(`${API_BASE}/login`, {
+    method: 'POST',
+    body: formData,
+  })
   return res.json()
 }
 

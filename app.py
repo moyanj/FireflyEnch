@@ -7,6 +7,7 @@ from fastapi import (
     Depends,
     Query,
     Request,
+    Cookie,
 )
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,8 @@ import random
 import multiprocessing
 import json
 import uvicorn
+import time
+from captcha.image import ImageCaptcha
 
 # 导入tortoise-orm
 from tortoise.contrib.fastapi import RegisterTortoise
@@ -36,6 +39,11 @@ UPLOAD_FOLDER = os.path.abspath(
 )
 SECRET_KEY = config["appkey"]
 PAGE_SIZE = 20
+
+# 验证码配置
+CAPTCHA_LENGTH = 4
+CAPTCHA_EXPIRE_SECONDS = 300  # 5分钟过期
+captcha_store: Dict[str, Dict[str, Any]] = {}  # {captcha_id: {"code": str, "expire": float}}
 
 # Tortoise-ORM配置
 TORTOISE_ORM = {
@@ -88,6 +96,18 @@ def jsonify(
     )
 
 
+def generate_captcha_code(length: int = CAPTCHA_LENGTH) -> str:
+    """生成随机验证码"""
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # 排除易混淆字符
+    return "".join(random.choices(chars, k=length))
+
+
+def generate_captcha_image(code: str) -> bytes:
+    """使用 captcha 库生成验证码图片"""
+    image_captcha = ImageCaptcha(width=120, height=40)
+    return image_captcha.generate(code).getvalue()
+
+
 async def save_file(content: bytes, filename: str) -> str:
     """异步保存文件"""
     filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -113,6 +133,66 @@ async def verify_appkey(appkey: Optional[str] = Query(None)) -> bool:
 
 
 # ========== API 路由 ==========
+
+
+@app.get("/api/captcha")
+async def get_captcha() -> Response:
+    """获取验证码图片"""
+    captcha_id = hashlib.md5(f"{time.time()}{random.random()}".encode()).hexdigest()
+    code = generate_captcha_code()
+
+    # 存储验证码
+    captcha_store[captcha_id] = {
+        "code": code.upper(),
+        "expire": time.time() + CAPTCHA_EXPIRE_SECONDS,
+    }
+
+    # 清理过期验证码
+    expired_ids = [k for k, v in captcha_store.items() if v["expire"] < time.time()]
+    for cid in expired_ids:
+        del captcha_store[cid]
+
+    # 生成图片
+    image_bytes = generate_captcha_image(code)
+
+    return Response(
+        content=image_bytes,
+        media_type="image/png",
+        headers={"X-Captcha-Id": captcha_id},
+    )
+
+
+@app.post("/api/login")
+async def login(
+    appkey: str = Form(...),
+    captcha: str = Form(...),
+    captcha_id: str = Form(...),
+) -> JSONResponse:
+    """登录验证"""
+    # 验证验证码
+    if captcha_id not in captcha_store:
+        raise HTTPException(status_code=400, detail="验证码已过期，请重新获取")
+
+    stored_captcha = captcha_store[captcha_id]
+    if stored_captcha["expire"] < time.time():
+        del captcha_store[captcha_id]
+        raise HTTPException(status_code=400, detail="验证码已过期，请重新获取")
+
+    if stored_captcha["code"] != captcha.upper():
+        del captcha_store[captcha_id]
+        raise HTTPException(status_code=400, detail="验证码错误")
+
+    # 验证通过，删除验证码
+    del captcha_store[captcha_id]
+
+    # 验证密码
+    if appkey != SECRET_KEY:
+        raise HTTPException(status_code=401, detail="密码错误")
+
+    # 生成简单的 token（实际项目中应使用 JWT）
+    token = hashlib.sha256(f"{appkey}{time.time()}".encode()).hexdigest()
+
+    return jsonify({"token": token}, "登录成功")
 
 
 @app.post("/api/upload")
