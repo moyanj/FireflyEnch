@@ -1,4 +1,12 @@
-import type { ApiResponse, ImagesListData, TagSearchData, UploadData, Image, LoginData } from './types'
+import type {
+  ApiResponse,
+  ImagesListData,
+  TagSearchData,
+  UploadData,
+  Image,
+  LoginData,
+  AiTagSuggestionData,
+} from './types'
 
 const API_BASE = '/api'
 
@@ -89,6 +97,36 @@ export async function uploadImage(
   formData.append('tags', tags.join(','))
 
   return request<UploadData>('/images', withApiKey(appkey, {
+    method: 'POST',
+    body: formData,
+  }))
+}
+
+/** AI 预生成标签 */
+export async function prepareImageUpload(
+  file: File,
+  appkey: string
+): Promise<ApiResponse<AiTagSuggestionData>> {
+  const formData = new FormData()
+  formData.append('image', file)
+
+  return request<AiTagSuggestionData>('/images/prepare', withApiKey(appkey, {
+    method: 'POST',
+    body: formData,
+  }))
+}
+
+/** 提交预生成上传 */
+export async function commitImageUpload(
+  uploadToken: string,
+  tags: string[],
+  appkey: string
+): Promise<ApiResponse<UploadData>> {
+  const formData = new FormData()
+  formData.append('upload_token', uploadToken)
+  formData.append('tags', tags.join(','))
+
+  return request<UploadData>('/images/commit', withApiKey(appkey, {
     method: 'POST',
     body: formData,
   }))

@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { uploadImage, deleteImage, clearCache } from '@/api'
+import {
+  commitImageUpload,
+  deleteImage,
+  clearCache,
+  prepareImageUpload,
+} from '@/api'
 
 const appkey = ref('')
 
@@ -12,13 +17,42 @@ const previewUrl = ref('')
 const uploadSuccess = ref(false)
 const uploadMessage = ref('')
 const uploadError = ref('')
-const isLoading = ref(false)
+const isUploading = ref(false)
+const isSuggesting = ref(false)
+
+const uploadToken = ref('')
+const suggestedTags = ref<string[]>([])
+const selectedSuggestedTags = ref<string[]>([])
 
 const imageId = ref('')
 const deleteConfirm = ref(false)
 const clearSuccess = ref(false)
 
 const hasSelectedFile = computed(() => selectedFile.value !== null)
+const canSuggestTags = computed(() => hasSelectedFile.value && !isSuggesting.value && !isUploading.value)
+const canCommitUpload = computed(() => hasSelectedFile.value && !!uploadToken.value && !isUploading.value && !isSuggesting.value)
+
+function uniqueTags(input: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const rawTag of input) {
+    const tag = rawTag.trim()
+    if (!tag) continue
+
+    const key = tag.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(tag)
+  }
+
+  return normalized
+}
+
+const mergedTagsPreview = computed(() => {
+  const manualTags = tags.value.split(',').map(tag => tag.trim())
+  return uniqueTags([...manualTags, ...selectedSuggestedTags.value])
+})
 
 function requireAppkey(): boolean {
   if (appkey.value.trim()) {
@@ -29,6 +63,12 @@ function requireAppkey(): boolean {
   return false
 }
 
+function resetSuggestionState() {
+  uploadToken.value = ''
+  suggestedTags.value = []
+  selectedSuggestedTags.value = []
+}
+
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (input.files && input.files[0]) {
@@ -37,6 +77,7 @@ function onFileChange(e: Event) {
     uploadSuccess.value = false
     uploadMessage.value = ''
     uploadError.value = ''
+    resetSuggestionState()
   }
 }
 
@@ -45,8 +86,52 @@ function clearFileSelection() {
   previewUrl.value = ''
   uploadSuccess.value = false
   uploadError.value = ''
+  resetSuggestionState()
   if (fileInput.value) {
     fileInput.value.value = ''
+  }
+}
+
+function toggleSuggestedTag(tag: string) {
+  if (selectedSuggestedTags.value.includes(tag)) {
+    selectedSuggestedTags.value = selectedSuggestedTags.value.filter(item => item !== tag)
+    return
+  }
+
+  selectedSuggestedTags.value = [...selectedSuggestedTags.value, tag]
+}
+
+async function handleSuggestTags() {
+  if (!requireAppkey()) return
+
+  if (!selectedFile.value) {
+    alert('请选择图片')
+    return
+  }
+
+  isSuggesting.value = true
+  uploadSuccess.value = false
+  uploadMessage.value = ''
+  uploadError.value = ''
+
+  try {
+    const res = await prepareImageUpload(selectedFile.value, appkey.value.trim())
+    if (res.code === 200) {
+      uploadToken.value = res.data.upload_token
+      suggestedTags.value = res.data.suggested_tags
+      selectedSuggestedTags.value = [...res.data.suggested_tags]
+      if (res.data.suggested_tags.length === 0) {
+        uploadMessage.value = '图片已准备完成，当前没有可用的 AI 建议标签'
+      } else {
+        uploadMessage.value = 'AI 建议标签已生成，请勾选后上传'
+      }
+    } else {
+      uploadError.value = res.message
+    }
+  } catch {
+    uploadError.value = 'AI 标签建议失败'
+  } finally {
+    isSuggesting.value = false
   }
 }
 
@@ -58,13 +143,21 @@ async function handleUpload() {
     return
   }
 
-  isLoading.value = true
+  if (!uploadToken.value) {
+    uploadError.value = '请先生成 AI 建议标签'
+    return
+  }
+
+  isUploading.value = true
   uploadSuccess.value = false
   uploadMessage.value = ''
   uploadError.value = ''
   try {
-    const tagsList = tags.value.split(',').map(t => t.trim()).filter(Boolean)
-    const res = await uploadImage(selectedFile.value, tagsList, appkey.value.trim())
+    const res = await commitImageUpload(
+      uploadToken.value,
+      mergedTagsPreview.value,
+      appkey.value.trim(),
+    )
 
     if (res.code === 201) {
       uploadSuccess.value = true
@@ -72,6 +165,7 @@ async function handleUpload() {
       previewUrl.value = res.data.url
       selectedFile.value = null
       tags.value = ''
+      resetSuggestionState()
       if (fileInput.value) {
         fileInput.value.value = ''
       }
@@ -81,7 +175,7 @@ async function handleUpload() {
   } catch {
     uploadError.value = '上传失败'
   } finally {
-    isLoading.value = false
+    isUploading.value = false
   }
 }
 
@@ -98,7 +192,7 @@ async function handleDelete() {
     return
   }
 
-  isLoading.value = true
+  isUploading.value = true
   try {
     const res = await deleteImage(parseInt(imageId.value, 10), appkey.value.trim())
     if (res.code === 204) {
@@ -111,7 +205,7 @@ async function handleDelete() {
   } catch {
     alert('删除失败')
   } finally {
-    isLoading.value = false
+    isUploading.value = false
   }
 }
 
@@ -122,7 +216,7 @@ function cancelDelete() {
 async function handleClearCache() {
   if (!requireAppkey()) return
 
-  isLoading.value = true
+  isUploading.value = true
   clearSuccess.value = false
   try {
     const res = await clearCache(appkey.value.trim())
@@ -137,7 +231,7 @@ async function handleClearCache() {
   } catch {
     alert('清除失败')
   } finally {
-    isLoading.value = false
+    isUploading.value = false
   }
 }
 </script>
@@ -148,7 +242,7 @@ async function handleClearCache() {
       <div class="admin__header">
         <div class="admin__welcome">
           <h1 class="admin__title">管理后台</h1>
-          <p class="admin__desc">上传接口直接使用 appkey，无需验证码登录</p>
+          <p class="admin__desc">上传图片时先生成 AI 标签建议，再确认正式入库</p>
         </div>
       </div>
 
@@ -193,19 +287,57 @@ async function handleClearCache() {
             </div>
 
             <div class="admin__field">
-              <label class="admin__label">标签</label>
+              <label class="admin__label">手动标签</label>
               <input v-model="tags" type="text" class="admin__input" placeholder="输入标签，用逗号分隔">
             </div>
 
             <button
+              class="admin__btn admin__btn--secondary"
+              :disabled="!canSuggestTags"
+              @click="handleSuggestTags"
+            >
+              {{ isSuggesting ? '生成建议中...' : 'AI 建议标签' }}
+            </button>
+
+            <div v-if="suggestedTags.length" class="admin__field">
+              <label class="admin__label">AI 建议</label>
+              <div class="admin__tag-list">
+                <button
+                  v-for="tag in suggestedTags"
+                  :key="tag"
+                  type="button"
+                  class="admin__tag-chip"
+                  :class="{ 'admin__tag-chip--active': selectedSuggestedTags.includes(tag) }"
+                  @click="toggleSuggestedTag(tag)"
+                >
+                  #{{ tag }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="uploadToken" class="admin__field">
+              <label class="admin__label">最终上传标签</label>
+              <div class="admin__tag-summary">
+                <span v-if="mergedTagsPreview.length">
+                  {{ mergedTagsPreview.join(', ') }}
+                </span>
+                <span v-else>当前未选择任何标签</span>
+              </div>
+            </div>
+
+            <button
               class="admin__btn admin__btn--primary"
-              :disabled="isLoading || !hasSelectedFile"
+              :disabled="!canCommitUpload"
               @click="handleUpload"
             >
-              {{ isLoading ? '上传中...' : '上传图片' }}
+              {{ isUploading ? '上传中...' : '正式上传' }}
             </button>
 
             <div v-if="uploadSuccess" class="admin__success">
+              ✓ {{ uploadMessage }}
+            </div>
+
+            <div v-else-if="uploadMessage" class="admin__success">
               ✓ {{ uploadMessage }}
             </div>
 
@@ -229,7 +361,7 @@ async function handleClearCache() {
             <div v-if="deleteConfirm" class="admin__confirm">
               <p class="admin__confirm-text">确定要删除图片 #{{ imageId }} 吗？此操作不可撤销。</p>
               <div class="admin__confirm-actions">
-                <button class="admin__btn admin__btn--danger" :disabled="isLoading" @click="handleDelete">
+                <button class="admin__btn admin__btn--danger" :disabled="isUploading || isSuggesting" @click="handleDelete">
                   确认删除
                 </button>
                 <button class="admin__btn admin__btn--secondary" @click="cancelDelete">
@@ -241,7 +373,7 @@ async function handleClearCache() {
             <button
               v-else
               class="admin__btn admin__btn--danger"
-              :disabled="isLoading || !imageId"
+              :disabled="isUploading || isSuggesting || !imageId"
               @click="handleDelete"
             >
               删除图片
@@ -255,7 +387,7 @@ async function handleClearCache() {
           </div>
 
           <div class="admin__card-body">
-            <button class="admin__btn admin__btn--secondary" :disabled="isLoading" @click="handleClearCache">
+            <button class="admin__btn admin__btn--secondary" :disabled="isUploading || isSuggesting" @click="handleClearCache">
               清除缓存
             </button>
 
@@ -501,6 +633,41 @@ async function handleClearCache() {
   border-color: var(--color-text-secondary);
 }
 
+.admin__tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.admin__tag-chip {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+  color: var(--color-text-secondary);
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.admin__tag-chip--active {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.admin__tag-summary {
+  min-height: 44px;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .admin__confirm {
   padding: var(--space-md);
   background-color: rgba(220, 53, 69, 0.1);
@@ -520,16 +687,16 @@ async function handleClearCache() {
 }
 
 .admin__success {
-  padding: var(--space-sm) var(--space-md);
-  background-color: rgba(76, 175, 80, 0.1);
-  border: 1px solid rgba(76, 175, 80, 0.3);
+  padding: var(--space-md);
+  background-color: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.3);
   border-radius: var(--radius-sm);
-  color: #4caf50;
+  color: #28a745;
   font-size: 0.9rem;
 }
 
 .admin__error {
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
   background-color: rgba(220, 53, 69, 0.1);
   border: 1px solid rgba(220, 53, 69, 0.3);
   border-radius: var(--radius-sm);
@@ -543,37 +710,33 @@ async function handleClearCache() {
   margin: var(--space-sm) 0;
 }
 
-.admin__link-btn {
-  display: block;
-  width: 100%;
-  padding: var(--space-md);
-  background-color: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  text-align: center;
+.admin__link-btn,
+.admin__link {
+  color: var(--color-accent);
   text-decoration: none;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast);
+  transition: color var(--transition-fast);
 }
 
-.admin__link-btn:hover {
-  background-color: var(--color-surface-hover);
-  border-color: var(--color-accent);
+.admin__link-btn:hover,
+.admin__link:hover {
+  color: var(--color-accent-hover);
 }
 
 .admin__footer {
   text-align: center;
 }
 
-.admin__link {
-  color: var(--color-text-muted);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
+@media (max-width: 768px) {
+  .admin {
+    padding: var(--space-md);
+  }
 
-.admin__link:hover {
-  color: var(--color-accent);
+  .admin__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin__confirm-actions {
+    flex-direction: column;
+  }
 }
 </style>

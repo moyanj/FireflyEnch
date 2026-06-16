@@ -11,45 +11,77 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional, Dict, Any
-from pathlib import Path
+from typing import Optional, Dict, Any, TypedDict
 from contextlib import asynccontextmanager
 import aiofiles
-import os
 import hashlib
-import random
 import multiprocessing
-import json
-import uvicorn
+import os
+import random
+import re
 import time
+import uuid
+
+import httpx
+import uvicorn
 from captcha.image import ImageCaptcha
-from PIL import Image as PILImage
+from tortoise.contrib.fastapi import RegisterTortoise
 
 # 导入tortoise-orm
-from tortoise.contrib.fastapi import RegisterTortoise
+import config as app_config
 from models import Image
-from utils import compute_hash
-
-# 加载配置
-with open("config.json") as f:
-    config = json.load(f)
+from utils import (
+    build_public_image_url,
+    cleanup_expired_prepared_uploads,
+    compute_hash,
+    compute_perceptual_hash,
+    compute_quick_hash,
+    get_safe_path,
+    normalize_tags,
+    parse_tags,
+    phash_distance,
+)
 
 # 配置常量
 UPLOAD_FOLDER = os.path.abspath(
-    os.environ.get("UPLOAD_FOLDER", config["upload_dir"]) or config["upload_dir"]
+    os.environ.get("UPLOAD_FOLDER", app_config.UPLOAD_DIR) or app_config.UPLOAD_DIR
 )
-SECRET_KEY = config["appkey"]
+SECRET_KEY = app_config.APP_KEY
 PAGE_SIZE = 20
 THUMBNAIL_SIZE = (640, 640)
 THUMBNAIL_FOLDER = os.path.join(UPLOAD_FOLDER, ".thumbs")
+TEMP_UPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, ".prepared")
+PREPARED_UPLOAD_EXPIRE_SECONDS = 1800
 PHASH_DUPLICATE_THRESHOLD = 6
 
-# 验证码配置
+AI_CONFIG = {
+    "enabled": app_config.AI_ENABLED,
+    "base_url": app_config.AI_BASE_URL,
+    "api_key": app_config.AI_API_KEY,
+    "model": app_config.AI_MODEL,
+    "timeout_seconds": app_config.AI_TIMEOUT_SECONDS,
+    "max_tags": app_config.AI_MAX_TAGS,
+    "prompt": app_config.AI_PROMPT,
+}
+AI_TIMEOUT_SECONDS = app_config.AI_TIMEOUT_SECONDS
+AI_MAX_TAGS = app_config.AI_MAX_TAGS
+AI_DEFAULT_PROMPT = app_config.AI_PROMPT
+
 CAPTCHA_LENGTH = 4
-CAPTCHA_EXPIRE_SECONDS = 300  # 5分钟过期
-captcha_store: Dict[str, Dict[str, Any]] = (
-    {}
-)  # {captcha_id: {"code": str, "expire": float}}
+CAPTCHA_EXPIRE_SECONDS = 300
+# 验证码配置
+captcha_store: Dict[str, Dict[str, Any]] = {}
+
+
+class PreparedUpload(TypedDict):
+    token: str
+    temp_filename: str
+    original_filename: str
+    created_at: float
+    suggested_tags: list[str]
+
+
+prepared_uploads: Dict[str, PreparedUpload] = {}
 
 # Tortoise-ORM配置
 TORTOISE_ORM = {
@@ -68,6 +100,7 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
+    os.makedirs(TEMP_UPLOAD_FOLDER, exist_ok=True)
     async with RegisterTortoise(
         app,
         config=TORTOISE_ORM,
@@ -78,8 +111,8 @@ async def lifespan(app: FastAPI):
 
 # 创建FastAPI应用
 app = FastAPI(
-    title=config["name"],
-    version="2.4.6",
+    title=app_config.APP_NAME,
+    version="2.5.0",
     description="FireflyEnch - 简单的图片画廊系统",
     lifespan=lifespan,
 )
@@ -105,7 +138,7 @@ def jsonify(
 
 def generate_captcha_code(length: int = CAPTCHA_LENGTH) -> str:
     """生成随机验证码"""
-    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # 排除易混淆字符
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     return "".join(random.choices(chars, k=length))
 
 
@@ -115,9 +148,13 @@ def generate_captcha_image(code: str) -> bytes:
     return image_captcha.generate(code).getvalue()
 
 
-async def save_file(content: bytes, filename: str) -> str:
+async def save_file(
+    content: bytes, filename: str, base_dir: Optional[str] = None
+) -> str:
     """异步保存文件"""
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    target_dir = base_dir or UPLOAD_FOLDER
+    os.makedirs(target_dir, exist_ok=True)
+    filepath = os.path.join(target_dir, filename)
     async with aiofiles.open(filepath, "wb") as out_file:
         await out_file.write(content)
     return filepath
@@ -140,6 +177,8 @@ def ensure_thumbnail(filename: str) -> str:
         return thumbnail_path
 
     try:
+        from PIL import Image as PILImage
+
         with PILImage.open(source_path) as image:
             image = image.convert("RGB")
             image.thumbnail(THUMBNAIL_SIZE)
@@ -159,13 +198,87 @@ def ensure_thumbnail(filename: str) -> str:
     return thumbnail_path
 
 
-def get_safe_path(base_dir: str, user_path: str) -> Optional[str]:
-    """安全地处理用户提供的路径，防止路径遍历攻击"""
-    safe_path = (Path(base_dir) / user_path).resolve()
-    base_path = Path(base_dir).resolve()
-    if not str(safe_path).startswith(str(base_path)):
-        return None
-    return str(safe_path)
+def is_image_file(filename: str) -> bool:
+    source_path = os.path.join(UPLOAD_FOLDER, filename)
+    try:
+        from PIL import Image as PILImage
+
+        with PILImage.open(source_path):
+            return True
+    except OSError:
+        return False
+
+
+async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
+    if not AI_CONFIG.get("enabled"):
+        return []
+
+    api_key = AI_CONFIG.get("api_key")
+    model = AI_CONFIG.get("model")
+    base_url = AI_CONFIG.get("base_url")
+    if not api_key or not model or not base_url:
+        raise HTTPException(status_code=500, detail="AI 配置不完整")
+
+    prompt = AI_CONFIG.get("prompt") or AI_DEFAULT_PROMPT
+    data_url = "data:image/png;base64," + __import__("base64").b64encode(
+        content
+    ).decode("ascii")
+
+    payload = {
+        "model": model,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"文件名：{filename}"},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            },
+        ],
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=AI_TIMEOUT_SECONDS) as client:
+        response = await client.post(
+            f"{base_url.rstrip('/')}/chat/completions",
+            headers=headers,
+            json=payload,
+        )
+        response.raise_for_status()
+
+    body = response.json()
+    content_text = body.get("choices", [{}])[0].get("message", {}).get("content", "")
+    return extract_ai_tags(content_text)[:AI_MAX_TAGS]
+
+
+def extract_ai_tags(content_text: str) -> list[str]:
+    try:
+        parsed = json.loads(content_text)
+    except json.JSONDecodeError:
+        parsed = None
+
+    if isinstance(parsed, dict):
+        tags = parsed.get("tags", [])
+        if isinstance(tags, list):
+            return normalize_tags([str(tag) for tag in tags])
+
+    tokens = [
+        part.strip("[](),:;，。！？")
+        for part in re.split(r"\s+", content_text)
+        if part.strip("[](),:;，。！？")
+    ]
+    tags = [
+        token
+        for token in tokens
+        if len(token) <= 32 and re.search(r"[\u4e00-\u9fffA-Za-z]", token)
+    ]
+    return normalize_tags(tags)
 
 
 async def verify_appkey(
@@ -179,6 +292,33 @@ async def verify_appkey(
     return True
 
 
+async def finalize_upload(
+    request: Request,
+    content: bytes,
+    original_filename: str,
+    tags: list[str],
+) -> JSONResponse:
+    base, ext = os.path.splitext(original_filename)
+    if not ext:
+        ext = ".png"
+
+    img_hash = compute_hash(content)
+    duplicate = await Image.check_duplicate(*img_hash)
+    if duplicate:
+        raise HTTPException(status_code=409, detail=f"疑似重复图片: {duplicate}")
+
+    filename = f"{hashlib.md5(content).hexdigest()}{ext.lower()}"
+    await save_file(content, filename)
+    new_image = await Image.create_image(filename, normalize_tags(tags), img_hash)
+
+    result = {
+        "id": new_image.id,
+        "url": build_public_image_url(str(request.base_url), new_image.id),
+        "tags": new_image.tags,
+    }
+    return jsonify(result, "上传成功", 201)
+
+
 # ========== API 路由 ==========
 
 
@@ -188,18 +328,15 @@ async def get_captcha() -> Response:
     captcha_id = hashlib.md5(f"{time.time()}{random.random()}".encode()).hexdigest()
     code = generate_captcha_code()
 
-    # 存储验证码
     captcha_store[captcha_id] = {
         "code": code.upper(),
         "expire": time.time() + CAPTCHA_EXPIRE_SECONDS,
     }
 
-    # 清理过期验证码
     expired_ids = [k for k, v in captcha_store.items() if v["expire"] < time.time()]
     for cid in expired_ids:
         del captcha_store[cid]
 
-    # 生成图片
     image_bytes = generate_captcha_image(code)
 
     return Response(
@@ -229,17 +366,100 @@ async def login(
         del captcha_store[captcha_id]
         raise HTTPException(status_code=400, detail="验证码错误")
 
-    # 验证通过，删除验证码
     del captcha_store[captcha_id]
 
-    # 验证密码
     if appkey != SECRET_KEY:
         raise HTTPException(status_code=401, detail="密码错误")
 
-    # 生成简单的 token（实际项目中应使用 JWT）
     token = hashlib.sha256(f"{appkey}{time.time()}".encode()).hexdigest()
-
     return jsonify({"token": token}, "登录成功")
+
+
+@app.post("/api/images/prepare")
+async def prepare_image_upload(
+    image: UploadFile = File(...),
+    _: bool = Depends(verify_appkey),
+) -> JSONResponse:
+    if not image.filename:
+        raise HTTPException(status_code=400, detail="没有选择文件")
+
+    cleanup_expired_prepared_uploads(
+        prepared_uploads,
+        TEMP_UPLOAD_FOLDER,
+        PREPARED_UPLOAD_EXPIRE_SECONDS,
+    )
+
+    content = await image.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="图片内容为空")
+
+    _, ext = os.path.splitext(image.filename)
+    if not ext:
+        ext = ".png"
+
+    token = uuid.uuid4().hex
+    temp_filename = f"{token}{ext.lower()}"
+    await save_file(content, temp_filename, TEMP_UPLOAD_FOLDER)
+
+    suggested_tags: list[str] = []
+    if AI_CONFIG.get("enabled"):
+        try:
+            suggested_tags = await generate_ai_tags(content, image.filename)
+        except (httpx.HTTPError, HTTPException, ValueError):
+            suggested_tags = []
+
+    prepared_uploads[token] = {
+        "token": token,
+        "temp_filename": temp_filename,
+        "original_filename": image.filename,
+        "created_at": time.time(),
+        "suggested_tags": suggested_tags,
+    }
+
+    return jsonify(
+        {
+            "upload_token": token,
+            "suggested_tags": suggested_tags,
+        }
+    )
+
+
+@app.post("/api/images/commit")
+async def commit_prepared_upload(
+    request: Request,
+    upload_token: str = Form(...),
+    tags: str = Form(""),
+    _: bool = Depends(verify_appkey),
+) -> JSONResponse:
+    cleanup_expired_prepared_uploads(
+        prepared_uploads,
+        TEMP_UPLOAD_FOLDER,
+        PREPARED_UPLOAD_EXPIRE_SECONDS,
+    )
+
+    prepared = prepared_uploads.pop(upload_token, None)
+    if not prepared:
+        raise HTTPException(status_code=404, detail="临时上传不存在或已过期")
+
+    temp_path = os.path.join(TEMP_UPLOAD_FOLDER, prepared["temp_filename"])
+    if not os.path.exists(temp_path):
+        raise HTTPException(status_code=404, detail="临时图片文件不存在")
+
+    async with aiofiles.open(temp_path, "rb") as file:
+        content = await file.read()
+
+    try:
+        response = await finalize_upload(
+            request,
+            content,
+            prepared["original_filename"],
+            parse_tags(tags),
+        )
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+    return response
 
 
 @app.post("/api/images")
@@ -249,30 +469,11 @@ async def upload_image(
     tags: str = Form(""),
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
-    """上传图片"""
     if not image.filename:
         raise HTTPException(status_code=400, detail="没有选择文件")
 
-    tag_list = tags.split(",") if tags else []
-    base, ext = os.path.splitext(image.filename)
-
     content = await image.read()
-    img_hash = compute_hash(content)
-    duplicate = await Image.check_duplicate(*img_hash)
-    if duplicate:
-        raise HTTPException(status_code=409, detail=f"疑似重复图片: {duplicate}")
-
-    filename = f"{hashlib.md5(content).hexdigest()}{ext}"
-
-    await save_file(content, filename)
-    new_image = await Image.create_image(filename, tag_list, img_hash)
-
-    result = {
-        "id": new_image.id,
-        "url": str(request.base_url) + f"api/images/{new_image.id}/file",
-        "tags": new_image.tags,
-    }
-    return jsonify(result, "上传成功", 201)
+    return await finalize_upload(request, content, image.filename, parse_tags(tags))
 
 
 @app.get("/api/images")
@@ -280,24 +481,23 @@ async def get_images(
     page: int = Query(1, ge=1),
     tag: Optional[str] = Query(None, description="标签列表，逗号分隔"),
 ) -> JSONResponse:
-    """获取图片列表（分页）"""
     if tag:
-        tag_list = tag.split(",")
+        tag_list = parse_tags(tag)
         images = await Image.get_by_tags(tag_list)
+        images = [img for img in images if is_image_file(img.filename)]
         return jsonify(
             {"total": len(images), "images": [img.to_dict() for img in images]}
         )
 
     result = await Image.get_all(page=page, page_size=PAGE_SIZE)
     if result["images"]:
+        result["images"] = [img for img in result["images"] if is_image_file(img["filename"])]
         random.shuffle(result["images"])
     return jsonify(result)
 
 
-# 注意：固定路由必须在参数化路由之前注册
 @app.get("/api/images/random")
 async def random_image():
-    """获取随机图片"""
     image = await Image.get_random()
     if not image:
         raise HTTPException(status_code=404, detail="没有图片")
@@ -306,7 +506,6 @@ async def random_image():
 
 @app.get("/api/images/{image_id}")
 async def get_image(image_id: int):
-    """根据ID获取图片元数据"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
@@ -315,7 +514,6 @@ async def get_image(image_id: int):
 
 @app.get("/api/images/{image_id}/file")
 async def get_image_file(image_id: int):
-    """根据ID获取原图文件"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
@@ -328,10 +526,11 @@ async def get_image_file(image_id: int):
 
 @app.get("/api/images/{image_id}/thumbnail")
 async def get_image_thumbnail(image_id: int):
-    """根据ID获取缩略图文件"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
+    if not is_image_file(image.filename):
+        raise HTTPException(status_code=404, detail="图片文件不存在")
 
     thumbnail_path = ensure_thumbnail(image.filename)
     return FileResponse(thumbnail_path, media_type="image/webp")
@@ -342,7 +541,6 @@ async def delete_image(
     image_id: int,
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
-    """删除图片"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
@@ -364,18 +562,14 @@ async def update_image_tags(
     tags: str = Query("", description="新标签列表，逗号分隔"),
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
-    """更新图片标签"""
-    tag_list = tags.split(",") if tags else []
-    success = await Image.update_tags(image_id, tag_list)
+    success = await Image.update_tags(image_id, parse_tags(tags))
     if success:
         return jsonify(msg="完成")
-    else:
-        raise HTTPException(status_code=404, detail="图片未找到")
+    raise HTTPException(status_code=404, detail="图片未找到")
 
 
 @app.delete("/api/cache")
 async def clear_cache(_: bool = Depends(verify_appkey)) -> JSONResponse:
-    """清除数据库缓存"""
     return jsonify()
 
 
@@ -384,7 +578,6 @@ async def clear_cache(_: bool = Depends(verify_appkey)) -> JSONResponse:
 
 @app.get("/{path:path}")
 async def static_file(path: str) -> FileResponse:
-    """静态文件服务"""
     file_path = get_safe_path("files", path)
     if not file_path or not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -393,11 +586,11 @@ async def static_file(path: str) -> FileResponse:
 
 def main():
     """启动应用"""
-    cpu_count = multiprocessing.cpu_count()
+    multiprocessing.cpu_count()
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=config["port"],
+        port=app_config.APP_PORT,
         reload=False,
     )
 
