@@ -64,7 +64,7 @@ def parse_tags(tags: str) -> list[str]:
 
 
 def cleanup_expired_prepared_uploads(
-    prepared_uploads: dict[str, dict[str, Any]],
+    prepared_uploads: dict[str, Any],
     temp_upload_folder: str,
     expire_seconds: int,
 ) -> None:

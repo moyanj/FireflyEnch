@@ -3,6 +3,7 @@ from tortoise.models import Model
 from tortoise import fields
 from typing import List, Optional, Dict, Any, Tuple
 
+import config
 from utils import compute_perceptual_hash, compute_quick_hash, phash_distance
 
 
@@ -120,6 +121,9 @@ class Image(Model):
         for img in await cls.all():
             if img.phash:
                 b = imagehash.hex_to_hash(img.phash)
-                if phash_distance(perceptual_hash, b) <= 5:
+                if (
+                    phash_distance(perceptual_hash, b)
+                    <= config.PHASH_DUPLICATE_THRESHOLD
+                ):
                     return True
         return False

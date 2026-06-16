@@ -1,3 +1,19 @@
+"""FireflyEnch 主应用模块"""
+
+import json
+import os
+import random
+import re
+import time
+import uuid
+import hashlib
+import multiprocessing
+from contextlib import asynccontextmanager
+from typing import Optional, Dict, Any, TypedDict
+
+import aiofiles
+import httpx
+import uvicorn
 from fastapi import (
     FastAPI,
     UploadFile,
@@ -11,69 +27,54 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional, Dict, Any, TypedDict
-from contextlib import asynccontextmanager
-import aiofiles
-import hashlib
-import multiprocessing
-import os
-import random
-import re
-import time
-import uuid
-
-import httpx
-import uvicorn
 from captcha.image import ImageCaptcha
 from tortoise.contrib.fastapi import RegisterTortoise
 
-# 导入tortoise-orm
-import config as app_config
+# 导入应用配置
+from config import (
+    AI_API_KEY,
+    AI_BASE_URL,
+    AI_ENABLED,
+    AI_MAX_TAGS,
+    AI_MODEL,
+    AI_PROMPT,
+    AI_TIMEOUT_SECONDS,
+    APP_NAME,
+    APP_PORT,
+    CAPTCHA_EXPIRE_SECONDS,
+    CAPTCHA_LENGTH,
+    PAGE_SIZE,
+    PHASH_DUPLICATE_THRESHOLD,
+    PREPARED_UPLOAD_EXPIRE_SECONDS,
+    SECRET_KEY,
+    THUMBNAIL_FOLDER,
+    THUMBNAIL_SIZE,
+    TORTOISE_ORM,
+    UPLOAD_FOLDER,
+)
+
+# 临时上传目录（用于预上传流程）
+TEMP_UPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, ".prepared")
+
+# 导入数据模型和工具函数
 from models import Image
 from utils import (
     build_public_image_url,
     cleanup_expired_prepared_uploads,
     compute_hash,
-    compute_perceptual_hash,
-    compute_quick_hash,
     get_safe_path,
     normalize_tags,
     parse_tags,
-    phash_distance,
 )
 
-# 配置常量
-UPLOAD_FOLDER = os.path.abspath(
-    os.environ.get("UPLOAD_FOLDER", app_config.UPLOAD_DIR) or app_config.UPLOAD_DIR
-)
-SECRET_KEY = app_config.APP_KEY
-PAGE_SIZE = 20
-THUMBNAIL_SIZE = (640, 640)
-THUMBNAIL_FOLDER = os.path.join(UPLOAD_FOLDER, ".thumbs")
-TEMP_UPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, ".prepared")
-PREPARED_UPLOAD_EXPIRE_SECONDS = 1800
-PHASH_DUPLICATE_THRESHOLD = 6
+# ==================== 内存存储 ====================
 
-AI_CONFIG = {
-    "enabled": app_config.AI_ENABLED,
-    "base_url": app_config.AI_BASE_URL,
-    "api_key": app_config.AI_API_KEY,
-    "model": app_config.AI_MODEL,
-    "timeout_seconds": app_config.AI_TIMEOUT_SECONDS,
-    "max_tags": app_config.AI_MAX_TAGS,
-    "prompt": app_config.AI_PROMPT,
-}
-AI_TIMEOUT_SECONDS = app_config.AI_TIMEOUT_SECONDS
-AI_MAX_TAGS = app_config.AI_MAX_TAGS
-AI_DEFAULT_PROMPT = app_config.AI_PROMPT
-
-CAPTCHA_LENGTH = 4
-CAPTCHA_EXPIRE_SECONDS = 300
-# 验证码配置
+# 验证码存储（captcha_id -> {code, expire}）
 captcha_store: Dict[str, Dict[str, Any]] = {}
 
 
 class PreparedUpload(TypedDict):
+    """预上传文件信息"""
     token: str
     temp_filename: str
     original_filename: str
@@ -81,23 +82,16 @@ class PreparedUpload(TypedDict):
     suggested_tags: list[str]
 
 
+# 预上传文件存储（token -> PreparedUpload）
 prepared_uploads: Dict[str, PreparedUpload] = {}
 
-# Tortoise-ORM配置
-TORTOISE_ORM = {
-    "connections": {"default": "sqlite://db/images.db"},
-    "apps": {
-        "models": {
-            "models": ["models", "aerich.models"],
-            "default_connection": "default",
-        }
-    },
-}
+
+# ==================== 应用生命周期 ====================
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
+    """应用生命周期管理：启动时创建必要目录，初始化数据库"""
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
     os.makedirs(TEMP_UPLOAD_FOLDER, exist_ok=True)
@@ -109,15 +103,16 @@ async def lifespan(app: FastAPI):
         yield
 
 
-# 创建FastAPI应用
+# ==================== 创建 FastAPI 应用 ====================
+
 app = FastAPI(
-    title=app_config.APP_NAME,
+    title=APP_NAME,
     version="2.5.0",
     description="FireflyEnch - 简单的图片画廊系统",
     lifespan=lifespan,
 )
 
-# 添加CORS中间件
+# CORS 中间件：允许跨域请求
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -127,17 +122,20 @@ app.add_middleware(
 )
 
 
+# ==================== 工具函数 ====================
+
+
 def jsonify(
     data: Optional[Dict[str, Any]] = None, msg: str = "OK", status: int = 200
 ) -> JSONResponse:
-    """统一JSON响应格式"""
+    """统一 JSON 响应格式：{code, message, data}"""
     return JSONResponse(
         content={"code": status, "message": msg, "data": data}, status_code=status
     )
 
 
 def generate_captcha_code(length: int = CAPTCHA_LENGTH) -> str:
-    """生成随机验证码"""
+    """生成随机验证码（排除易混淆字符 I/O/0/1）"""
     chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     return "".join(random.choices(chars, k=length))
 
@@ -151,7 +149,7 @@ def generate_captcha_image(code: str) -> bytes:
 async def save_file(
     content: bytes, filename: str, base_dir: Optional[str] = None
 ) -> str:
-    """异步保存文件"""
+    """异步保存文件到指定目录，返回文件完整路径"""
     target_dir = base_dir or UPLOAD_FOLDER
     os.makedirs(target_dir, exist_ok=True)
     filepath = os.path.join(target_dir, filename)
@@ -161,21 +159,25 @@ async def save_file(
 
 
 def get_thumbnail_path(filename: str) -> str:
+    """获取缩略图路径（WebP 格式）"""
     stem, _ = os.path.splitext(filename)
     return os.path.join(THUMBNAIL_FOLDER, f"{stem}.webp")
 
 
 def ensure_thumbnail(filename: str) -> str:
+    """确保缩略图存在且是最新的，不存在或过期则重新生成"""
     source_path = os.path.join(UPLOAD_FOLDER, filename)
     if not os.path.exists(source_path):
         raise HTTPException(status_code=404, detail="图片文件不存在")
 
     thumbnail_path = get_thumbnail_path(filename)
+    # 缩略图已存在且比原图新，直接返回
     if os.path.exists(thumbnail_path) and os.path.getmtime(
         thumbnail_path
     ) >= os.path.getmtime(source_path):
         return thumbnail_path
 
+    # 生成缩略图
     try:
         from PIL import Image as PILImage
 
@@ -199,6 +201,7 @@ def ensure_thumbnail(filename: str) -> str:
 
 
 def is_image_file(filename: str) -> bool:
+    """检查文件是否为有效的图片文件"""
     source_path = os.path.join(UPLOAD_FOLDER, filename)
     try:
         from PIL import Image as PILImage
@@ -209,26 +212,28 @@ def is_image_file(filename: str) -> bool:
         return False
 
 
+# ==================== AI 自动标签 ====================
+
+
 async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
-    if not AI_CONFIG.get("enabled"):
+    """调用 AI 服务自动提取图片标签"""
+    if not AI_ENABLED:
         return []
 
-    api_key = AI_CONFIG.get("api_key")
-    model = AI_CONFIG.get("model")
-    base_url = AI_CONFIG.get("base_url")
-    if not api_key or not model or not base_url:
+    if not AI_API_KEY or not AI_MODEL or not AI_BASE_URL:
         raise HTTPException(status_code=500, detail="AI 配置不完整")
 
-    prompt = AI_CONFIG.get("prompt") or AI_DEFAULT_PROMPT
+    # 将图片转为 base64 data URL
     data_url = "data:image/png;base64," + __import__("base64").b64encode(
         content
     ).decode("ascii")
 
+    # 构建请求 payload
     payload = {
-        "model": model,
+        "model": AI_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
-            {"role": "system", "content": prompt},
+            {"role": "system", "content": AI_PROMPT},
             {
                 "role": "user",
                 "content": [
@@ -240,34 +245,40 @@ async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
     }
 
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {AI_API_KEY}",
         "Content-Type": "application/json",
     }
 
+    # 调用 AI API
     async with httpx.AsyncClient(timeout=AI_TIMEOUT_SECONDS) as client:
         response = await client.post(
-            f"{base_url.rstrip('/')}/chat/completions",
+            f"{AI_BASE_URL.rstrip('/')}/chat/completions",
             headers=headers,
             json=payload,
         )
         response.raise_for_status()
 
+    # 解析响应，提取标签
     body = response.json()
     content_text = body.get("choices", [{}])[0].get("message", {}).get("content", "")
     return extract_ai_tags(content_text)[:AI_MAX_TAGS]
 
 
 def extract_ai_tags(content_text: str) -> list[str]:
+    """从 AI 响应文本中提取标签列表"""
+    # 尝试解析 JSON 格式
     try:
         parsed = json.loads(content_text)
     except json.JSONDecodeError:
         parsed = None
 
+    # 如果是 JSON 对象且包含 tags 字段
     if isinstance(parsed, dict):
         tags = parsed.get("tags", [])
         if isinstance(tags, list):
             return normalize_tags([str(tag) for tag in tags])
 
+    # 回退：按空白字符分割并过滤
     tokens = [
         part.strip("[](),:;，。！？")
         for part in re.split(r"\s+", content_text)
@@ -281,15 +292,21 @@ def extract_ai_tags(content_text: str) -> list[str]:
     return normalize_tags(tags)
 
 
+# ==================== 认证依赖 ====================
+
+
 async def verify_appkey(
     x_api_key: Optional[str] = Header(None),
     appkey: Optional[str] = Query(None),
 ) -> bool:
-    """API密钥验证"""
+    """API 密钥验证（支持 Header 和 Query 两种方式）"""
     candidate = x_api_key or appkey
     if candidate != SECRET_KEY:
         raise HTTPException(status_code=401, detail="无权限")
     return True
+
+
+# ==================== 上传处理 ====================
 
 
 async def finalize_upload(
@@ -298,15 +315,18 @@ async def finalize_upload(
     original_filename: str,
     tags: list[str],
 ) -> JSONResponse:
+    """完成图片上传：检查重复、保存文件、创建数据库记录"""
     base, ext = os.path.splitext(original_filename)
     if not ext:
         ext = ".png"
 
+    # 检查图片是否重复（基于感知哈希）
     img_hash = compute_hash(content)
     duplicate = await Image.check_duplicate(*img_hash)
     if duplicate:
         raise HTTPException(status_code=409, detail=f"疑似重复图片: {duplicate}")
 
+    # 保存文件（以 MD5 哈希命名）
     filename = f"{hashlib.md5(content).hexdigest()}{ext.lower()}"
     await save_file(content, filename)
     new_image = await Image.create_image(filename, normalize_tags(tags), img_hash)
@@ -319,20 +339,22 @@ async def finalize_upload(
     return jsonify(result, "上传成功", 201)
 
 
-# ========== API 路由 ==========
+# ==================== API 路由：认证 ====================
 
 
 @app.get("/api/captcha")
 async def get_captcha() -> Response:
-    """获取验证码图片"""
+    """获取验证码图片，返回图片二进制和 captcha_id（通过 X-Captcha-Id 头）"""
     captcha_id = hashlib.md5(f"{time.time()}{random.random()}".encode()).hexdigest()
     code = generate_captcha_code()
 
+    # 存储验证码（带过期时间）
     captcha_store[captcha_id] = {
         "code": code.upper(),
         "expire": time.time() + CAPTCHA_EXPIRE_SECONDS,
     }
 
+    # 清理过期验证码
     expired_ids = [k for k, v in captcha_store.items() if v["expire"] < time.time()]
     for cid in expired_ids:
         del captcha_store[cid]
@@ -352,7 +374,7 @@ async def login(
     captcha: str = Form(...),
     captcha_id: str = Form(...),
 ) -> JSONResponse:
-    """登录验证"""
+    """登录验证：校验验证码和密钥，返回 token"""
     # 验证验证码
     if captcha_id not in captcha_store:
         raise HTTPException(status_code=400, detail="验证码已过期，请重新获取")
@@ -368,11 +390,16 @@ async def login(
 
     del captcha_store[captcha_id]
 
+    # 验证密钥
     if appkey != SECRET_KEY:
         raise HTTPException(status_code=401, detail="密码错误")
 
+    # 生成 token
     token = hashlib.sha256(f"{appkey}{time.time()}".encode()).hexdigest()
     return jsonify({"token": token}, "登录成功")
+
+
+# ==================== API 路由：图片上传 ====================
 
 
 @app.post("/api/images/prepare")
@@ -380,9 +407,11 @@ async def prepare_image_upload(
     image: UploadFile = File(...),
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
+    """预上传图片：保存临时文件，可选调用 AI 生成标签建议"""
     if not image.filename:
         raise HTTPException(status_code=400, detail="没有选择文件")
 
+    # 清理过期的预上传文件
     cleanup_expired_prepared_uploads(
         prepared_uploads,
         TEMP_UPLOAD_FOLDER,
@@ -393,21 +422,26 @@ async def prepare_image_upload(
     if not content:
         raise HTTPException(status_code=400, detail="图片内容为空")
 
-    _, ext = os.path.splitext(image.filename)
+    # 获取文件扩展名
+    filename: str = image.filename or "unknown"
+    _base, ext = os.path.splitext(filename)
     if not ext:
         ext = ".png"
 
+    # 保存到临时目录
     token = uuid.uuid4().hex
     temp_filename = f"{token}{ext.lower()}"
     await save_file(content, temp_filename, TEMP_UPLOAD_FOLDER)
 
+    # AI 自动标签（可选）
     suggested_tags: list[str] = []
-    if AI_CONFIG.get("enabled"):
+    if AI_ENABLED:
         try:
             suggested_tags = await generate_ai_tags(content, image.filename)
         except (httpx.HTTPError, HTTPException, ValueError):
             suggested_tags = []
 
+    # 记录预上传信息
     prepared_uploads[token] = {
         "token": token,
         "temp_filename": temp_filename,
@@ -431,6 +465,8 @@ async def commit_prepared_upload(
     tags: str = Form(""),
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
+    """提交预上传：确认标签并完成图片入库"""
+    # 清理过期的预上传文件
     cleanup_expired_prepared_uploads(
         prepared_uploads,
         TEMP_UPLOAD_FOLDER,
@@ -456,6 +492,7 @@ async def commit_prepared_upload(
             parse_tags(tags),
         )
     finally:
+        # 清理临时文件
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
@@ -469,6 +506,7 @@ async def upload_image(
     tags: str = Form(""),
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
+    """直接上传图片（跳过预上传流程）"""
     if not image.filename:
         raise HTTPException(status_code=400, detail="没有选择文件")
 
@@ -476,12 +514,17 @@ async def upload_image(
     return await finalize_upload(request, content, image.filename, parse_tags(tags))
 
 
+# ==================== API 路由：图片查询 ====================
+
+
 @app.get("/api/images")
 async def get_images(
     page: int = Query(1, ge=1),
     tag: Optional[str] = Query(None, description="标签列表，逗号分隔"),
 ) -> JSONResponse:
+    """获取图片列表（支持标签筛选和分页）"""
     if tag:
+        # 按标签筛选
         tag_list = parse_tags(tag)
         images = await Image.get_by_tags(tag_list)
         images = [img for img in images if is_image_file(img.filename)]
@@ -489,15 +532,20 @@ async def get_images(
             {"total": len(images), "images": [img.to_dict() for img in images]}
         )
 
+    # 分页查询
     result = await Image.get_all(page=page, page_size=PAGE_SIZE)
     if result["images"]:
-        result["images"] = [img for img in result["images"] if is_image_file(img["filename"])]
+        # 过滤无效文件并随机打乱
+        result["images"] = [
+            img for img in result["images"] if is_image_file(img["filename"])
+        ]
         random.shuffle(result["images"])
     return jsonify(result)
 
 
 @app.get("/api/images/random")
 async def random_image():
+    """获取随机一张图片"""
     image = await Image.get_random()
     if not image:
         raise HTTPException(status_code=404, detail="没有图片")
@@ -506,6 +554,7 @@ async def random_image():
 
 @app.get("/api/images/{image_id}")
 async def get_image(image_id: int):
+    """获取图片详情"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
@@ -514,6 +563,7 @@ async def get_image(image_id: int):
 
 @app.get("/api/images/{image_id}/file")
 async def get_image_file(image_id: int):
+    """获取图片原图文件"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
@@ -526,6 +576,7 @@ async def get_image_file(image_id: int):
 
 @app.get("/api/images/{image_id}/thumbnail")
 async def get_image_thumbnail(image_id: int):
+    """获取图片缩略图（WebP 格式）"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
@@ -536,18 +587,24 @@ async def get_image_thumbnail(image_id: int):
     return FileResponse(thumbnail_path, media_type="image/webp")
 
 
+# ==================== API 路由：图片管理 ====================
+
+
 @app.delete("/api/images/{image_id}")
 async def delete_image(
     image_id: int,
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
+    """删除图片（同时删除缩略图）"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
 
+    # 删除原图
     filepath = os.path.join(UPLOAD_FOLDER, image.filename)
     if os.path.exists(filepath):
         os.remove(filepath)
+    # 删除缩略图
     thumbnail_path = get_thumbnail_path(image.filename)
     if os.path.exists(thumbnail_path):
         os.remove(thumbnail_path)
@@ -562,6 +619,7 @@ async def update_image_tags(
     tags: str = Query("", description="新标签列表，逗号分隔"),
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
+    """更新图片标签"""
     success = await Image.update_tags(image_id, parse_tags(tags))
     if success:
         return jsonify(msg="完成")
@@ -570,18 +628,23 @@ async def update_image_tags(
 
 @app.delete("/api/cache")
 async def clear_cache(_: bool = Depends(verify_appkey)) -> JSONResponse:
+    """清除缓存（预留接口）"""
     return jsonify()
 
 
-# ========== 静态文件（放在最后） ==========
+# ==================== 静态文件（放在最后） ====================
 
 
 @app.get("/{path:path}")
 async def static_file(path: str) -> FileResponse:
+    """静态文件服务（前端 SPA）"""
     file_path = get_safe_path("files", path)
     if not file_path or not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail="文件不存在")
     return FileResponse(file_path)
+
+
+# ==================== 启动入口 ====================
 
 
 def main():
@@ -590,7 +653,7 @@ def main():
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=app_config.APP_PORT,
+        port=APP_PORT,
         reload=False,
     )
 
