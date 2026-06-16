@@ -1,4 +1,13 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query, Request
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    Form,
+    HTTPException,
+    Depends,
+    Query,
+    Request,
+)
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, Dict, Any, List, Union
@@ -22,21 +31,21 @@ with open("config.json") as f:
     config = json.load(f)
 
 # 配置常量
-UPLOAD_FOLDER = os.path.abspath(os.environ.get("UPLOAD_FOLDER", config["upload_dir"]) or config["upload_dir"])
+UPLOAD_FOLDER = os.path.abspath(
+    os.environ.get("UPLOAD_FOLDER", config["upload_dir"]) or config["upload_dir"]
+)
 SECRET_KEY = config["appkey"]
 PAGE_SIZE = 20
 
 # Tortoise-ORM配置
 TORTOISE_ORM = {
-    "connections": {
-        "default": "sqlite://db/images.db"
-    },
+    "connections": {"default": "sqlite://db/images.db"},
     "apps": {
         "models": {
             "models": ["models", "aerich.models"],
             "default_connection": "default",
         }
-    }
+    },
 }
 
 
@@ -70,9 +79,13 @@ app.add_middleware(
 )
 
 
-def jsonify(data: Optional[Dict[str, Any]] = None, msg: str = "OK", status: int = 200) -> JSONResponse:
+def jsonify(
+    data: Optional[Dict[str, Any]] = None, msg: str = "OK", status: int = 200
+) -> JSONResponse:
     """统一JSON响应格式"""
-    return JSONResponse(content={"code": status, "message": msg, "data": data}, status_code=status)
+    return JSONResponse(
+        content={"code": status, "message": msg, "data": data}, status_code=status
+    )
 
 
 async def save_file(content: bytes, filename: str) -> str:
@@ -100,6 +113,7 @@ async def verify_appkey(appkey: Optional[str] = Query(None)) -> bool:
 
 
 # ========== API 路由 ==========
+
 
 @app.post("/api/upload")
 async def upload_image(
@@ -140,7 +154,7 @@ async def get_images(page: int = Query(1, ge=1)) -> JSONResponse:
 
 # 注意：固定路由必须在参数化路由之前注册
 @app.get("/api/image/random")
-async def random_image(info: str = Query("0")) -> Union[JSONResponse, FileResponse]:
+async def random_image(info: str = Query("0")):
     """获取随机图片"""
     image = await Image.get_random()
     if not image:
@@ -156,7 +170,9 @@ async def random_image(info: str = Query("0")) -> Union[JSONResponse, FileRespon
 
 
 @app.get("/api/image/tag")
-async def get_image_by_tag(tag: str = Query(..., description="标签列表，逗号分隔")) -> JSONResponse:
+async def get_image_by_tag(
+    tag: str = Query(..., description="标签列表，逗号分隔")
+) -> JSONResponse:
     """根据标签获取图片"""
     if not tag:
         raise HTTPException(status_code=400, detail="请提供标签")
@@ -167,7 +183,7 @@ async def get_image_by_tag(tag: str = Query(..., description="标签列表，逗
 
 
 @app.get("/api/image/{image_id}")
-async def get_image(image_id: int, info: Optional[str] = Query(None)) -> Union[JSONResponse, FileResponse]:
+async def get_image(image_id: int, info: Optional[str] = Query(None)):
     """根据ID获取图片"""
     image = await Image.get_by_id(image_id)
     if not image:
@@ -225,6 +241,7 @@ async def clear_cache(appkey: str = Depends(verify_appkey)) -> JSONResponse:
 
 # ========== 静态文件（放在最后） ==========
 
+
 @app.get("/{path:path}")
 async def static_file(path: str) -> FileResponse:
     """静态文件服务"""
@@ -241,7 +258,6 @@ def main():
         "app:app",
         host="0.0.0.0",
         port=config["port"],
-        workers=cpu_count * 2 + 1,
         reload=False,
     )
 

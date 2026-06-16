@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import ThemeSwitch from './ThemeSwitch.vue'
 
 const route = useRoute()
 const isScrolled = ref(false)
@@ -49,9 +48,7 @@ onUnmounted(() => {
         </span>
       </button>
 
-      <div class="navbar__actions">
-        <ThemeSwitch />
-      </div>
+      <div class="navbar__actions"></div>
 
       <div class="navbar__links" :class="{ 'is-open': isMobileMenuOpen }">
         <RouterLink

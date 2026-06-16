@@ -19,7 +19,7 @@
 }
 
 /* ============================================
-   CSS Variables - Light Theme (Default)
+   CSS Variables - Dark Theme (Forced)
    ============================================ */
 :root {
   /* Typography */
@@ -27,27 +27,27 @@
   --font-body: 'HarmonyOS Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   
   /* Colors - Core Palette */
-  --color-bg: #f5f7fa;
-  --color-bg-elevated: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f0f2f5;
+  --color-bg: #0f1419;
+  --color-bg-elevated: #1a1f26;
+  --color-surface: #1a1f26;
+  --color-surface-hover: #252b33;
   
-  --color-text: #1a1f26;
-  --color-text-secondary: #5a6270;
-  --color-text-muted: #8a92a0;
+  --color-text: #e7e9ea;
+  --color-text-secondary: #8a92a0;
+  --color-text-muted: #5a6270;
   
-  --color-accent: #ffb347;       /* Firefly amber */
-  --color-accent-hover: #ffc470;
-  --color-accent-glow: rgba(255, 179, 71, 0.3);
+  --color-accent: #c8ff00;       /* Electric firefly glow */
+  --color-accent-hover: #d4ff30;
+  --color-accent-glow: rgba(200, 255, 0, 0.25);
   
-  --color-border: #e0e4e8;
-  --color-border-subtle: #f0f2f5;
+  --color-border: #2f3640;
+  --color-border-subtle: #252b33;
   
   /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.40);
+  --shadow-glow: 0 0 32px var(--color-accent-glow);
   
   /* Spacing */
   --space-xs: 4px;
@@ -73,58 +73,6 @@
   --z-elevated: 10;
   --z-modal: 100;
   --z-toast: 200;
-}
-
-/* ============================================
-   CSS Variables - Dark Theme
-   ============================================ */
-.dark {
-  --color-bg: #0f1419;
-  --color-bg-elevated: #1a1f26;
-  --color-surface: #1a1f26;
-  --color-surface-hover: #252b33;
-  
-  --color-text: #e7e9ea;
-  --color-text-secondary: #8a92a0;
-  --color-text-muted: #5a6270;
-  
-  --color-accent: #c8ff00;       /* Electric firefly glow */
-  --color-accent-hover: #d4ff30;
-  --color-accent-glow: rgba(200, 255, 0, 0.25);
-  
-  --color-border: #2f3640;
-  --color-border-subtle: #252b33;
-  
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.40);
-  --shadow-glow: 0 0 32px var(--color-accent-glow);
-}
-
-/* Auto dark mode based on system preference */
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --color-bg: #0f1419;
-    --color-bg-elevated: #1a1f26;
-    --color-surface: #1a1f26;
-    --color-surface-hover: #252b33;
-    
-    --color-text: #e7e9ea;
-    --color-text-secondary: #8a92a0;
-    --color-text-muted: #5a6270;
-    
-    --color-accent: #c8ff00;
-    --color-accent-hover: #d4ff30;
-    --color-accent-glow: rgba(200, 255, 0, 0.25);
-    
-    --color-border: #2f3640;
-    --color-border-subtle: #252b33;
-    
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.40);
-    --shadow-glow: 0 0 32px var(--color-accent-glow);
-  }
 }
 
 /* ============================================
