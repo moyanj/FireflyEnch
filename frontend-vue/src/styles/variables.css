@@ -1,0 +1,193 @@
+/* ============================================
+   FireflyEnch Design System
+   Theme: 暗夜萤火 (Dark Night Firefly)
+   ============================================ */
+
+/* Custom Fonts */
+@font-face {
+  font-family: 'StarRail';
+  src: url('@/assets/fonts/starrail.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'HarmonyOS Sans';
+  src: url('@/assets/fonts/HarmonyOS_Sans.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* ============================================
+   CSS Variables - Light Theme (Default)
+   ============================================ */
+:root {
+  /* Typography */
+  --font-display: 'StarRail', 'HarmonyOS Sans', sans-serif;
+  --font-body: 'HarmonyOS Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* Colors - Core Palette */
+  --color-bg: #f5f7fa;
+  --color-bg-elevated: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0f2f5;
+  
+  --color-text: #1a1f26;
+  --color-text-secondary: #5a6270;
+  --color-text-muted: #8a92a0;
+  
+  --color-accent: #ffb347;       /* Firefly amber */
+  --color-accent-hover: #ffc470;
+  --color-accent-glow: rgba(255, 179, 71, 0.3);
+  
+  --color-border: #e0e4e8;
+  --color-border-subtle: #f0f2f5;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+  
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 400ms ease;
+  
+  /* Z-Index */
+  --z-base: 0;
+  --z-elevated: 10;
+  --z-modal: 100;
+  --z-toast: 200;
+}
+
+/* ============================================
+   CSS Variables - Dark Theme
+   ============================================ */
+.dark {
+  --color-bg: #0f1419;
+  --color-bg-elevated: #1a1f26;
+  --color-surface: #1a1f26;
+  --color-surface-hover: #252b33;
+  
+  --color-text: #e7e9ea;
+  --color-text-secondary: #8a92a0;
+  --color-text-muted: #5a6270;
+  
+  --color-accent: #c8ff00;       /* Electric firefly glow */
+  --color-accent-hover: #d4ff30;
+  --color-accent-glow: rgba(200, 255, 0, 0.25);
+  
+  --color-border: #2f3640;
+  --color-border-subtle: #252b33;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.40);
+  --shadow-glow: 0 0 32px var(--color-accent-glow);
+}
+
+/* Auto dark mode based on system preference */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --color-bg: #0f1419;
+    --color-bg-elevated: #1a1f26;
+    --color-surface: #1a1f26;
+    --color-surface-hover: #252b33;
+    
+    --color-text: #e7e9ea;
+    --color-text-secondary: #8a92a0;
+    --color-text-muted: #5a6270;
+    
+    --color-accent: #c8ff00;
+    --color-accent-hover: #d4ff30;
+    --color-accent-glow: rgba(200, 255, 0, 0.25);
+    
+    --color-border: #2f3640;
+    --color-border-subtle: #252b33;
+    
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.40);
+    --shadow-glow: 0 0 32px var(--color-accent-glow);
+  }
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  min-height: 100vh;
+  transition: background-color var(--transition-base), color var(--transition-base);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: normal;
+  line-height: 1.3;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Utility classes */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

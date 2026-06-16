@@ -5,14 +5,20 @@ FROM python:3.12.5-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# Install uv
+RUN pip install --no-cache-dir uv
+
 # Set the working directory
 WORKDIR /moyan
 
 # Copy only the requirements file initially
-COPY . .
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
+RUN uv sync --frozen --no-dev
+
+# Copy the rest of the application
+COPY . .
 
 # Create a non-root user for running the application
 RUN adduser --system --group moyan \
@@ -25,4 +31,4 @@ USER moyan
 EXPOSE 8896
 
 # Command to run the application
-CMD ["python", "app.py"]
+CMD ["uv", "run", "python", "app.py"]

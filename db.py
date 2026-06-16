@@ -1,6 +1,6 @@
 import os
 import aiosqlite
-from mjson import json
+import json
 import time
 
 

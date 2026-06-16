@@ -7,18 +7,17 @@ all: frontend docker
 
 init:
 	@echo 开始安装环境
-	${PYTHON} -m pip install -r requirements.txt
-	${PYTHON} -m pip install -r req.txt
-	
+	uv sync
+
 frontend: init
-	${PYTHON} mfb.py frontend -p tjs -p rjs --dist files -d version=${VERSION} -d type=rel
-	
+	uv run python mfb.py frontend -p tjs -p rjs --dist files -d version=${VERSION} -d type=rel
+
 docker:
 	docker build -t fireflyench:${VERSION} .
 
 run:
-	${PYTHON} app.py
-	
+	uv run python app.py
+
 clean:
 	rm -rf uploads/
 	rm -rf db/
@@ -26,3 +25,5 @@ clean:
 	rm -rf .cache/
 	rm -rf cache/
 	rm -rf __pycache__/
+	rm -rf .venv/
+	rm -rf fireflyench.egg-info/
