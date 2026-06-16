@@ -1,104 +1,15 @@
-{% extends "base.html" %}
-{% block title %}主页{% endblock title %}
-
-{% block css %}
-<link rel="stylesheet" href="/statics/css/card.css">
-{% endblock css %}
-
-{% block content %}
-<div class="container my-4 cont">
-    <div id="gallery" class="row"></div>
-    <!--
-    <nav aria-label="Page navigation example" class="my-4">
-        <ul class="pagination justify-content-center">
-            <li class="page-item">
-                <button class="page-link" id="prevBtn">上一页</button>
-            </li>
-            <li class="page-item">
-                <button class="page-link" id="nextBtn">下一页</button>
-            </li>
-        </ul>
-    </nav>-->
-</div>
-{% endblock content%}
-
-{% block js %}
-<script>
-    $(document).ready(function() {
-        let currentPage = 1;
-        let last = false;
-
-        function fetchImages(page) {
-            if ($BP.onInit()) {
-                var url = base_url + `/api/images?all`;
-            } else {
-                var url = base_url + `/api/images`;
-            }
-            return $.ajax({
-                url: url,
-                method: 'GET',
-                data: {
-                    page: page
-                },
-                dataType: 'json',
-                error: function() {
-                    bs4pop.notice("与服务器的连接丢失了呢 o(╥﹏╥)o ", {
-                        "height": "2vh"
-                    });
-                }
-            });
-        }
-
-        function renderCards(itemsToDisplay) {
-            const gallery = $('#gallery');
-            itemsToDisplay.forEach(item => {
-                const card = $(`
-        <div class="col-md-3 col-sm-6 col-6">
-            <div class="cards">
-                <a href="${base_url}/api/image/${item.id}"><img src="statics/img/loading.webp" data-src="${base_url}/api/image/${item.id}" class="cards-img lazy"></a>
-                <div class="cards-body">
-                    ${item.tags.map(tag => `<a href="/search.html?tag=${encodeURIComponent(tag)}" class="cards-text">#${tag}</a>`).join(',')}
-                </div>
-            </div>
-        </div>
-        `);
-                gallery.append(card);
-            });
-        }
-
-        function lazyload() {
-            const el = document.querySelectorAll('.lazy');
-            const observer = lozad(el); // passing a `NodeList` (e.g. `document.querySelectorAll()`) is also valid
-            observer.observe();
-        }
-
-        function loadMoreImages() {
-            if (last) {
-                return;
-            }
-            fetchImages(currentPage).done(function(data) {
-                if (data.data.last) {
-                    last = true;
-                }
-                if (currentPage == data.data.page) {
-                    renderCards(data.data.images);
-                    currentPage++;
-                    // 初始化懒加载
-                    lazyload();
-                }
-
-            });
-
-        }
-
-        // 监听滚动事件
-        $(window).scroll(function() {
-            if ($(window).scrollTop() + $(window).height() > $(document).height() - 100) {
-                loadMoreImages();
-            }
-        });
-        loadMoreImages();
-
-    });
-</script>
-{% endblock js %}
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.png" type="image/png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="keywords" content="图片,画廊,收集" />
+    <meta name="copyright" content="MoYan" />
+    <title>FireflyEnch - 画廊</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

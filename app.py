@@ -7,14 +7,13 @@ from fastapi import (
     Depends,
     Query,
     Request,
-    Cookie,
+    Header,
 )
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any
 from pathlib import Path
 from contextlib import asynccontextmanager
-
 import aiofiles
 import os
 import hashlib
@@ -24,10 +23,12 @@ import json
 import uvicorn
 import time
 from captcha.image import ImageCaptcha
+from PIL import Image as PILImage
 
 # 导入tortoise-orm
 from tortoise.contrib.fastapi import RegisterTortoise
 from models import Image
+from utils import compute_hash
 
 # 加载配置
 with open("config.json") as f:
@@ -39,11 +40,16 @@ UPLOAD_FOLDER = os.path.abspath(
 )
 SECRET_KEY = config["appkey"]
 PAGE_SIZE = 20
+THUMBNAIL_SIZE = (640, 640)
+THUMBNAIL_FOLDER = os.path.join(UPLOAD_FOLDER, ".thumbs")
+PHASH_DUPLICATE_THRESHOLD = 6
 
 # 验证码配置
 CAPTCHA_LENGTH = 4
 CAPTCHA_EXPIRE_SECONDS = 300  # 5分钟过期
-captcha_store: Dict[str, Dict[str, Any]] = {}  # {captcha_id: {"code": str, "expire": float}}
+captcha_store: Dict[str, Dict[str, Any]] = (
+    {}
+)  # {captcha_id: {"code": str, "expire": float}}
 
 # Tortoise-ORM配置
 TORTOISE_ORM = {
@@ -61,6 +67,7 @@ TORTOISE_ORM = {
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
     async with RegisterTortoise(
         app,
         config=TORTOISE_ORM,
@@ -116,6 +123,42 @@ async def save_file(content: bytes, filename: str) -> str:
     return filepath
 
 
+def get_thumbnail_path(filename: str) -> str:
+    stem, _ = os.path.splitext(filename)
+    return os.path.join(THUMBNAIL_FOLDER, f"{stem}.webp")
+
+
+def ensure_thumbnail(filename: str) -> str:
+    source_path = os.path.join(UPLOAD_FOLDER, filename)
+    if not os.path.exists(source_path):
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+
+    thumbnail_path = get_thumbnail_path(filename)
+    if os.path.exists(thumbnail_path) and os.path.getmtime(
+        thumbnail_path
+    ) >= os.path.getmtime(source_path):
+        return thumbnail_path
+
+    try:
+        with PILImage.open(source_path) as image:
+            image = image.convert("RGB")
+            image.thumbnail(THUMBNAIL_SIZE)
+
+            thumbnail_dir = os.path.dirname(thumbnail_path)
+            os.makedirs(thumbnail_dir, exist_ok=True)
+
+            image.save(
+                thumbnail_path,
+                format="WEBP",
+                quality=85,
+                method=6,
+            )
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail="无法生成缩略图") from exc
+
+    return thumbnail_path
+
+
 def get_safe_path(base_dir: str, user_path: str) -> Optional[str]:
     """安全地处理用户提供的路径，防止路径遍历攻击"""
     safe_path = (Path(base_dir) / user_path).resolve()
@@ -125,9 +168,13 @@ def get_safe_path(base_dir: str, user_path: str) -> Optional[str]:
     return str(safe_path)
 
 
-async def verify_appkey(appkey: Optional[str] = Query(None)) -> bool:
+async def verify_appkey(
+    x_api_key: Optional[str] = Header(None),
+    appkey: Optional[str] = Query(None),
+) -> bool:
     """API密钥验证"""
-    if appkey != SECRET_KEY:
+    candidate = x_api_key or appkey
+    if candidate != SECRET_KEY:
         raise HTTPException(status_code=401, detail="无权限")
     return True
 
@@ -195,12 +242,12 @@ async def login(
     return jsonify({"token": token}, "登录成功")
 
 
-@app.post("/api/upload")
+@app.post("/api/images")
 async def upload_image(
     request: Request,
     image: UploadFile = File(...),
     tags: str = Form(""),
-    appkey: str = Depends(verify_appkey),
+    _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
     """上传图片"""
     if not image.filename:
@@ -210,22 +257,37 @@ async def upload_image(
     base, ext = os.path.splitext(image.filename)
 
     content = await image.read()
+    img_hash = compute_hash(content)
+    duplicate = await Image.check_duplicate(*img_hash)
+    if duplicate:
+        raise HTTPException(status_code=409, detail=f"疑似重复图片: {duplicate}")
+
     filename = f"{hashlib.md5(content).hexdigest()}{ext}"
 
     await save_file(content, filename)
-    new_image = await Image.create_image(filename, tag_list)
+    new_image = await Image.create_image(filename, tag_list, img_hash)
 
     result = {
         "id": new_image.id,
-        "url": str(request.base_url) + f"api/image/{new_image.id}",
+        "url": str(request.base_url) + f"api/images/{new_image.id}/file",
         "tags": new_image.tags,
     }
     return jsonify(result, "上传成功", 201)
 
 
 @app.get("/api/images")
-async def get_images(page: int = Query(1, ge=1)) -> JSONResponse:
+async def get_images(
+    page: int = Query(1, ge=1),
+    tag: Optional[str] = Query(None, description="标签列表，逗号分隔"),
+) -> JSONResponse:
     """获取图片列表（分页）"""
+    if tag:
+        tag_list = tag.split(",")
+        images = await Image.get_by_tags(tag_list)
+        return jsonify(
+            {"total": len(images), "images": [img.to_dict() for img in images]}
+        )
+
     result = await Image.get_all(page=page, page_size=PAGE_SIZE)
     if result["images"]:
         random.shuffle(result["images"])
@@ -233,76 +295,74 @@ async def get_images(page: int = Query(1, ge=1)) -> JSONResponse:
 
 
 # 注意：固定路由必须在参数化路由之前注册
-@app.get("/api/image/random")
-async def random_image(info: str = Query("0")):
+@app.get("/api/images/random")
+async def random_image():
     """获取随机图片"""
     image = await Image.get_random()
     if not image:
         raise HTTPException(status_code=404, detail="没有图片")
-
-    if info != "0":
-        return jsonify(image.to_dict())
-
-    filepath = os.path.join(UPLOAD_FOLDER, image.filename)
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="图片文件不存在")
-    return FileResponse(filepath)
+    return jsonify(image.to_dict())
 
 
-@app.get("/api/image/tag")
-async def get_image_by_tag(
-    tag: str = Query(..., description="标签列表，逗号分隔")
-) -> JSONResponse:
-    """根据标签获取图片"""
-    if not tag:
-        raise HTTPException(status_code=400, detail="请提供标签")
-
-    tag_list = tag.split(",")
-    images = await Image.get_by_tags(tag_list)
-    return jsonify({"total": len(images), "images": [img.to_dict() for img in images]})
+@app.get("/api/images/{image_id}")
+async def get_image(image_id: int):
+    """根据ID获取图片元数据"""
+    image = await Image.get_by_id(image_id)
+    if not image:
+        raise HTTPException(status_code=404, detail="图片未找到")
+    return jsonify(image.to_dict())
 
 
-@app.get("/api/image/{image_id}")
-async def get_image(image_id: int, info: Optional[str] = Query(None)):
-    """根据ID获取图片"""
+@app.get("/api/images/{image_id}/file")
+async def get_image_file(image_id: int):
+    """根据ID获取原图文件"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
 
-    if info:
-        return jsonify(image.to_dict())
-
     filepath = os.path.join(UPLOAD_FOLDER, image.filename)
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="图片文件不存在")
     return FileResponse(filepath)
 
 
-@app.delete("/api/image/{image_id}")
+@app.get("/api/images/{image_id}/thumbnail")
+async def get_image_thumbnail(image_id: int):
+    """根据ID获取缩略图文件"""
+    image = await Image.get_by_id(image_id)
+    if not image:
+        raise HTTPException(status_code=404, detail="图片未找到")
+
+    thumbnail_path = ensure_thumbnail(image.filename)
+    return FileResponse(thumbnail_path, media_type="image/webp")
+
+
+@app.delete("/api/images/{image_id}")
 async def delete_image(
     image_id: int,
-    rmfile: str = Query("1", description="是否删除文件"),
-    appkey: str = Depends(verify_appkey),
+    _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
     """删除图片"""
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
 
-    if rmfile == "1":
-        filepath = os.path.join(UPLOAD_FOLDER, image.filename)
-        if os.path.exists(filepath):
-            os.remove(filepath)
+    filepath = os.path.join(UPLOAD_FOLDER, image.filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    thumbnail_path = get_thumbnail_path(image.filename)
+    if os.path.exists(thumbnail_path):
+        os.remove(thumbnail_path)
 
     await Image.delete_image(image_id)
     return jsonify(None, "图片删除成功", 204)
 
 
-@app.patch("/api/image/{image_id}")
+@app.patch("/api/images/{image_id}")
 async def update_image_tags(
     image_id: int,
     tags: str = Query("", description="新标签列表，逗号分隔"),
-    appkey: str = Depends(verify_appkey),
+    _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
     """更新图片标签"""
     tag_list = tags.split(",") if tags else []
@@ -313,8 +373,8 @@ async def update_image_tags(
         raise HTTPException(status_code=404, detail="图片未找到")
 
 
-@app.delete("/api/clear")
-async def clear_cache(appkey: str = Depends(verify_appkey)) -> JSONResponse:
+@app.delete("/api/cache")
+async def clear_cache(_: bool = Depends(verify_appkey)) -> JSONResponse:
     """清除数据库缓存"""
     return jsonify()
 
