@@ -38,7 +38,6 @@ export interface UploadData {
 
 /** AI 建议响应 */
 export interface AiTagSuggestionData {
-  upload_token: string
   suggested_tags: string[]
 }
 

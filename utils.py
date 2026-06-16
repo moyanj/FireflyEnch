@@ -1,3 +1,5 @@
+import asyncio
+import base64
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional, Tuple
@@ -8,6 +10,8 @@ import time
 import imagehash
 from PIL import Image as PILImage
 from PIL import ImageOps
+
+from config import THUMBNAIL_SIZE
 
 
 def compute_quick_hash(content: bytes) -> str:
@@ -59,29 +63,47 @@ def normalize_tags(tags: list[str]) -> list[str]:
     return normalized
 
 
+def create_thumbnail_base64(content: bytes) -> str:
+    """将图片内容转换为缩略图的 base64 data URL"""
+
+    with PILImage.open(BytesIO(content)) as img:
+        img = img.convert("RGB")
+        img.thumbnail(THUMBNAIL_SIZE)
+
+        buffer = BytesIO()
+        img.save(buffer, format="WEBP", quality=85, method=6)
+        buffer.seek(0)
+
+        return "data:image/webp;base64," + base64.b64encode(buffer.getvalue()).decode(
+            "ascii"
+        )
+
+
 def parse_tags(tags: str) -> list[str]:
     return normalize_tags(tags.split(",")) if tags else []
 
 
-def cleanup_expired_prepared_uploads(
+async def cleanup_expired_prepared_uploads(
     prepared_uploads: dict[str, Any],
     temp_upload_folder: str,
     expire_seconds: int,
 ) -> None:
-    now = time.time()
-    expired_tokens = [
-        token
-        for token, prepared in prepared_uploads.items()
-        if prepared["created_at"] + expire_seconds < now
-    ]
+    while True:
+        now = time.time()
+        expired_tokens = [
+            token
+            for token, prepared in prepared_uploads.items()
+            if prepared["created_at"] + expire_seconds < now
+        ]
 
-    for token in expired_tokens:
-        prepared = prepared_uploads.pop(token, None)
-        if not prepared:
-            continue
-        temp_path = os.path.join(temp_upload_folder, prepared["temp_filename"])
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        for token in expired_tokens:
+            prepared = prepared_uploads.pop(token, None)
+            if not prepared:
+                continue
+            temp_path = os.path.join(temp_upload_folder, prepared["temp_filename"])
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        await asyncio.sleep(60)  # 每分钟检查一次
 
 
 def build_public_image_url(base_url: str, image_id: int) -> str:

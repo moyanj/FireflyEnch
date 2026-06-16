@@ -116,6 +116,20 @@ export async function prepareImageUpload(
   }))
 }
 
+/** AI 建议标签 */
+export async function suggestImageTags(
+  file: File,
+  appkey: string
+): Promise<ApiResponse<AiTagSuggestionData>> {
+  const formData = new FormData()
+  formData.append('image', file)
+
+  return request<AiTagSuggestionData>('/images/suggest-tags', withApiKey(appkey, {
+    method: 'POST',
+    body: formData,
+  }))
+}
+
 /** 提交预生成上传 */
 export async function commitImageUpload(
   uploadToken: string,

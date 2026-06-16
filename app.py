@@ -1,5 +1,7 @@
 """FireflyEnch 主应用模块"""
 
+import asyncio
+from io import BytesIO
 import json
 import os
 import random
@@ -25,6 +27,8 @@ from fastapi import (
     Request,
     Header,
 )
+
+from PIL import Image as PILImage
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from captcha.image import ImageCaptcha
@@ -44,17 +48,14 @@ from config import (
     CAPTCHA_EXPIRE_SECONDS,
     CAPTCHA_LENGTH,
     PAGE_SIZE,
-    PHASH_DUPLICATE_THRESHOLD,
     PREPARED_UPLOAD_EXPIRE_SECONDS,
     SECRET_KEY,
     THUMBNAIL_FOLDER,
     THUMBNAIL_SIZE,
     TORTOISE_ORM,
     UPLOAD_FOLDER,
+    TEMP_UPLOAD_FOLDER,
 )
-
-# 临时上传目录（用于预上传流程）
-TEMP_UPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, ".prepared")
 
 # 导入数据模型和工具函数
 from models import Image
@@ -62,6 +63,7 @@ from utils import (
     build_public_image_url,
     cleanup_expired_prepared_uploads,
     compute_hash,
+    create_thumbnail_base64,
     get_safe_path,
     normalize_tags,
     parse_tags,
@@ -75,11 +77,11 @@ captcha_store: Dict[str, Dict[str, Any]] = {}
 
 class PreparedUpload(TypedDict):
     """预上传文件信息"""
+
     token: str
     temp_filename: str
     original_filename: str
     created_at: float
-    suggested_tags: list[str]
 
 
 # 预上传文件存储（token -> PreparedUpload）
@@ -92,9 +94,11 @@ prepared_uploads: Dict[str, PreparedUpload] = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时创建必要目录，初始化数据库"""
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
-    os.makedirs(TEMP_UPLOAD_FOLDER, exist_ok=True)
+    asyncio.create_task(
+        cleanup_expired_prepared_uploads(
+            prepared_uploads, TEMP_UPLOAD_FOLDER, PREPARED_UPLOAD_EXPIRE_SECONDS
+        )
+    )
     async with RegisterTortoise(
         app,
         config=TORTOISE_ORM,
@@ -164,7 +168,7 @@ def get_thumbnail_path(filename: str) -> str:
     return os.path.join(THUMBNAIL_FOLDER, f"{stem}.webp")
 
 
-def ensure_thumbnail(filename: str) -> str:
+async def ensure_thumbnail(filename: str) -> str:
     """确保缩略图存在且是最新的，不存在或过期则重新生成"""
     source_path = os.path.join(UPLOAD_FOLDER, filename)
     if not os.path.exists(source_path):
@@ -179,9 +183,9 @@ def ensure_thumbnail(filename: str) -> str:
 
     # 生成缩略图
     try:
-        from PIL import Image as PILImage
-
-        with PILImage.open(source_path) as image:
+        async with aiofiles.open(source_path, "rb") as f:
+            image = await f.read()
+            image = PILImage.open(BytesIO(image))
             image = image.convert("RGB")
             image.thumbnail(THUMBNAIL_SIZE)
 
@@ -200,13 +204,14 @@ def ensure_thumbnail(filename: str) -> str:
     return thumbnail_path
 
 
-def is_image_file(filename: str) -> bool:
+async def is_image_file(filename: str) -> bool:
     """检查文件是否为有效的图片文件"""
     source_path = os.path.join(UPLOAD_FOLDER, filename)
     try:
-        from PIL import Image as PILImage
 
-        with PILImage.open(source_path):
+        async with aiofiles.open(source_path, "rb") as f:
+            image = await f.read()
+            PILImage.open(BytesIO(image))
             return True
     except OSError:
         return False
@@ -216,17 +221,15 @@ def is_image_file(filename: str) -> bool:
 
 
 async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
-    """调用 AI 服务自动提取图片标签"""
+    """调用 AI 服务自动提取图片标签（传缩略图以减少数据量）"""
     if not AI_ENABLED:
         return []
 
     if not AI_API_KEY or not AI_MODEL or not AI_BASE_URL:
         raise HTTPException(status_code=500, detail="AI 配置不完整")
 
-    # 将图片转为 base64 data URL
-    data_url = "data:image/png;base64," + __import__("base64").b64encode(
-        content
-    ).decode("ascii")
+    # 生成缩略图的 base64
+    data_url = create_thumbnail_base64(content)
 
     # 构建请求 payload
     payload = {
@@ -327,7 +330,7 @@ async def finalize_upload(
         raise HTTPException(status_code=409, detail=f"疑似重复图片: {duplicate}")
 
     # 保存文件（以 MD5 哈希命名）
-    filename = f"{hashlib.md5(content).hexdigest()}{ext.lower()}"
+    filename = f"{hashlib.sha1(content).hexdigest()}{ext.lower()}"
     await save_file(content, filename)
     new_image = await Image.create_image(filename, normalize_tags(tags), img_hash)
 
@@ -407,16 +410,9 @@ async def prepare_image_upload(
     image: UploadFile = File(...),
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
-    """预上传图片：保存临时文件，可选调用 AI 生成标签建议"""
+    """预上传图片：保存临时文件，供后续确认提交"""
     if not image.filename:
         raise HTTPException(status_code=400, detail="没有选择文件")
-
-    # 清理过期的预上传文件
-    cleanup_expired_prepared_uploads(
-        prepared_uploads,
-        TEMP_UPLOAD_FOLDER,
-        PREPARED_UPLOAD_EXPIRE_SECONDS,
-    )
 
     content = await image.read()
     if not content:
@@ -433,7 +429,30 @@ async def prepare_image_upload(
     temp_filename = f"{token}{ext.lower()}"
     await save_file(content, temp_filename, TEMP_UPLOAD_FOLDER)
 
-    # AI 自动标签（可选）
+    # 记录预上传信息
+    prepared_uploads[token] = {
+        "token": token,
+        "temp_filename": temp_filename,
+        "original_filename": image.filename,
+        "created_at": time.time(),
+    }
+
+    return jsonify({"upload_token": token})
+
+
+@app.post("/api/images/suggest-tags")
+async def suggest_image_tags(
+    image: UploadFile = File(...),
+    _: bool = Depends(verify_appkey),
+) -> JSONResponse:
+    """为图片生成 AI 建议标签，不参与上传流程"""
+    if not image.filename:
+        raise HTTPException(status_code=400, detail="没有选择文件")
+
+    content = await image.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="图片内容为空")
+
     suggested_tags: list[str] = []
     if AI_ENABLED:
         try:
@@ -441,21 +460,7 @@ async def prepare_image_upload(
         except (httpx.HTTPError, HTTPException, ValueError):
             suggested_tags = []
 
-    # 记录预上传信息
-    prepared_uploads[token] = {
-        "token": token,
-        "temp_filename": temp_filename,
-        "original_filename": image.filename,
-        "created_at": time.time(),
-        "suggested_tags": suggested_tags,
-    }
-
-    return jsonify(
-        {
-            "upload_token": token,
-            "suggested_tags": suggested_tags,
-        }
-    )
+    return jsonify({"suggested_tags": suggested_tags})
 
 
 @app.post("/api/images/commit")
@@ -466,12 +471,6 @@ async def commit_prepared_upload(
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
     """提交预上传：确认标签并完成图片入库"""
-    # 清理过期的预上传文件
-    cleanup_expired_prepared_uploads(
-        prepared_uploads,
-        TEMP_UPLOAD_FOLDER,
-        PREPARED_UPLOAD_EXPIRE_SECONDS,
-    )
 
     prepared = prepared_uploads.pop(upload_token, None)
     if not prepared:
@@ -583,7 +582,7 @@ async def get_image_thumbnail(image_id: int):
     if not is_image_file(image.filename):
         raise HTTPException(status_code=404, detail="图片文件不存在")
 
-    thumbnail_path = ensure_thumbnail(image.filename)
+    thumbnail_path = await ensure_thumbnail(image.filename)
     return FileResponse(thumbnail_path, media_type="image/webp")
 
 

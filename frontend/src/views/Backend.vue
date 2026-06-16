@@ -2,10 +2,10 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  commitImageUpload,
   deleteImage,
   clearCache,
-  prepareImageUpload,
+  suggestImageTags,
+  uploadImage,
 } from '@/api'
 
 const appkey = ref('')
@@ -20,9 +20,14 @@ const uploadError = ref('')
 const isUploading = ref(false)
 const isSuggesting = ref(false)
 
-const uploadToken = ref('')
-const suggestedTags = ref<string[]>([])
-const selectedSuggestedTags = ref<string[]>([])
+type SuggestedTagItem = {
+  id: number
+  value: string
+  enabled: boolean
+}
+
+const suggestedTags = ref<SuggestedTagItem[]>([])
+let suggestedTagId = 0
 
 const imageId = ref('')
 const deleteConfirm = ref(false)
@@ -30,7 +35,7 @@ const clearSuccess = ref(false)
 
 const hasSelectedFile = computed(() => selectedFile.value !== null)
 const canSuggestTags = computed(() => hasSelectedFile.value && !isSuggesting.value && !isUploading.value)
-const canCommitUpload = computed(() => hasSelectedFile.value && !!uploadToken.value && !isUploading.value && !isSuggesting.value)
+const canCommitUpload = computed(() => hasSelectedFile.value && !isUploading.value && !isSuggesting.value)
 
 function uniqueTags(input: string[]): string[] {
   const seen = new Set<string>()
@@ -49,9 +54,20 @@ function uniqueTags(input: string[]): string[] {
   return normalized
 }
 
+function createSuggestedTagItems(input: string[]): SuggestedTagItem[] {
+  return uniqueTags(input).map(tag => ({
+    id: ++suggestedTagId,
+    value: tag,
+    enabled: true,
+  }))
+}
+
 const mergedTagsPreview = computed(() => {
   const manualTags = tags.value.split(',').map(tag => tag.trim())
-  return uniqueTags([...manualTags, ...selectedSuggestedTags.value])
+  const enabledSuggestedTags = suggestedTags.value
+    .filter(tag => tag.enabled)
+    .map(tag => tag.value)
+  return uniqueTags([...manualTags, ...enabledSuggestedTags])
 })
 
 function requireAppkey(): boolean {
@@ -64,9 +80,7 @@ function requireAppkey(): boolean {
 }
 
 function resetSuggestionState() {
-  uploadToken.value = ''
   suggestedTags.value = []
-  selectedSuggestedTags.value = []
 }
 
 function onFileChange(e: Event) {
@@ -92,13 +106,23 @@ function clearFileSelection() {
   }
 }
 
-function toggleSuggestedTag(tag: string) {
-  if (selectedSuggestedTags.value.includes(tag)) {
-    selectedSuggestedTags.value = selectedSuggestedTags.value.filter(item => item !== tag)
-    return
-  }
+function normalizeSuggestedTag(item: SuggestedTagItem) {
+  item.value = item.value.trim().slice(0, 32)
+}
 
-  selectedSuggestedTags.value = [...selectedSuggestedTags.value, tag]
+function addSuggestedTag() {
+  suggestedTags.value = [
+    ...suggestedTags.value,
+    {
+      id: ++suggestedTagId,
+      value: '',
+      enabled: true,
+    },
+  ]
+}
+
+function removeSuggestedTag(id: number) {
+  suggestedTags.value = suggestedTags.value.filter(tag => tag.id !== id)
 }
 
 async function handleSuggestTags() {
@@ -115,15 +139,13 @@ async function handleSuggestTags() {
   uploadError.value = ''
 
   try {
-    const res = await prepareImageUpload(selectedFile.value, appkey.value.trim())
+    const res = await suggestImageTags(selectedFile.value, appkey.value.trim())
     if (res.code === 200) {
-      uploadToken.value = res.data.upload_token
-      suggestedTags.value = res.data.suggested_tags
-      selectedSuggestedTags.value = [...res.data.suggested_tags]
+      suggestedTags.value = createSuggestedTagItems(res.data.suggested_tags)
       if (res.data.suggested_tags.length === 0) {
-        uploadMessage.value = '图片已准备完成，当前没有可用的 AI 建议标签'
+        uploadMessage.value = '当前没有可用的 AI 建议标签'
       } else {
-        uploadMessage.value = 'AI 建议标签已生成，请勾选后上传'
+        uploadMessage.value = 'AI 建议标签已生成，可直接上传或继续手动调整'
       }
     } else {
       uploadError.value = res.message
@@ -143,18 +165,13 @@ async function handleUpload() {
     return
   }
 
-  if (!uploadToken.value) {
-    uploadError.value = '请先生成 AI 建议标签'
-    return
-  }
-
   isUploading.value = true
   uploadSuccess.value = false
   uploadMessage.value = ''
   uploadError.value = ''
   try {
-    const res = await commitImageUpload(
-      uploadToken.value,
+    const res = await uploadImage(
+      selectedFile.value,
       mergedTagsPreview.value,
       appkey.value.trim(),
     )
@@ -242,7 +259,7 @@ async function handleClearCache() {
       <div class="admin__header">
         <div class="admin__welcome">
           <h1 class="admin__title">管理后台</h1>
-          <p class="admin__desc">上传图片时先生成 AI 标签建议，再确认正式入库</p>
+          <p class="admin__desc">图片可直接上传，AI 建议标签为独立可选能力</p>
         </div>
       </div>
 
@@ -301,21 +318,38 @@ async function handleClearCache() {
 
             <div v-if="suggestedTags.length" class="admin__field">
               <label class="admin__label">AI 建议</label>
-              <div class="admin__tag-list">
-                <button
+              <div class="admin__suggested-list">
+                <div
                   v-for="tag in suggestedTags"
-                  :key="tag"
-                  type="button"
-                  class="admin__tag-chip"
-                  :class="{ 'admin__tag-chip--active': selectedSuggestedTags.includes(tag) }"
-                  @click="toggleSuggestedTag(tag)"
+                  :key="tag.id"
+                  class="admin__suggested-item"
                 >
-                  #{{ tag }}
-                </button>
+                  <label class="admin__suggested-toggle">
+                    <input v-model="tag.enabled" type="checkbox">
+                    <span>上传</span>
+                  </label>
+                  <input
+                    v-model="tag.value"
+                    type="text"
+                    class="admin__input admin__suggested-input"
+                    placeholder="编辑 AI 标签"
+                    @blur="normalizeSuggestedTag(tag)"
+                  >
+                  <button
+                    type="button"
+                    class="admin__tag-remove"
+                    @click="removeSuggestedTag(tag.id)"
+                  >
+                    删除
+                  </button>
+                </div>
               </div>
+              <button type="button" class="admin__text-btn" @click="addSuggestedTag">
+                + 新增建议标签
+              </button>
             </div>
 
-            <div v-if="uploadToken" class="admin__field">
+            <div class="admin__field">
               <label class="admin__label">最终上传标签</label>
               <div class="admin__tag-summary">
                 <span v-if="mergedTagsPreview.length">
@@ -330,7 +364,7 @@ async function handleClearCache() {
               :disabled="!canCommitUpload"
               @click="handleUpload"
             >
-              {{ isUploading ? '上传中...' : '正式上传' }}
+              {{ isUploading ? '上传中...' : '直接上传' }}
             </button>
 
             <div v-if="uploadSuccess" class="admin__success">
@@ -633,29 +667,62 @@ async function handleClearCache() {
   border-color: var(--color-text-secondary);
 }
 
-.admin__tag-list {
+.admin__suggested-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-sm);
 }
 
-.admin__tag-chip {
+.admin__suggested-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.admin__suggested-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.admin__suggested-input {
+  min-width: 0;
+}
+
+.admin__tag-remove {
   border: 1px solid var(--color-border);
   background-color: var(--color-bg);
   color: var(--color-text-secondary);
-  padding: 0.45rem 0.8rem;
-  border-radius: 999px;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
-    background-color var(--transition-fast),
     border-color var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast),
+    background-color var(--transition-fast);
 }
 
-.admin__tag-chip--active {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-bg);
+.admin__tag-remove:hover {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.admin__text-btn {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.admin__text-btn:hover {
+  color: var(--color-accent-hover);
 }
 
 .admin__tag-summary {
@@ -737,6 +804,10 @@ async function handleClearCache() {
 
   .admin__confirm-actions {
     flex-direction: column;
+  }
+
+  .admin__suggested-item {
+    grid-template-columns: 1fr;
   }
 }
 </style>
