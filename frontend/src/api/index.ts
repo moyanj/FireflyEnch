@@ -7,6 +7,7 @@ import type {
   LoginData,
   AiTagSuggestionData,
 } from './types'
+import { getAdminToken } from '@/auth'
 
 const API_BASE = '/api'
 
@@ -29,13 +30,17 @@ async function request<T>(
   }
 }
 
-function withApiKey(appkey: string, options: RequestInit = {}): RequestInit {
+function withAdminAuth(options: RequestInit = {}): RequestInit {
+  const headers = new Headers(options.headers ?? {})
+  const token = getAdminToken()
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
   return {
     ...options,
-    headers: {
-      ...(options.headers ?? {}),
-      'X-API-Key': appkey,
-    },
+    headers,
   }
 }
 
@@ -89,14 +94,13 @@ export async function searchByTag(tag: string): Promise<ApiResponse<TagSearchDat
 /** 上传图片 */
 export async function uploadImage(
   file: File,
-  tags: string[],
-  appkey: string
+  tags: string[]
 ): Promise<ApiResponse<UploadData>> {
   const formData = new FormData()
   formData.append('image', file)
   formData.append('tags', tags.join(','))
 
-  return request<UploadData>('/images', withApiKey(appkey, {
+  return request<UploadData>('/images', withAdminAuth({
     method: 'POST',
     body: formData,
   }))
@@ -104,13 +108,12 @@ export async function uploadImage(
 
 /** AI 预生成标签 */
 export async function prepareImageUpload(
-  file: File,
-  appkey: string
+  file: File
 ): Promise<ApiResponse<AiTagSuggestionData>> {
   const formData = new FormData()
   formData.append('image', file)
 
-  return request<AiTagSuggestionData>('/images/prepare', withApiKey(appkey, {
+  return request<AiTagSuggestionData>('/images/prepare', withAdminAuth({
     method: 'POST',
     body: formData,
   }))
@@ -118,13 +121,12 @@ export async function prepareImageUpload(
 
 /** AI 建议标签 */
 export async function suggestImageTags(
-  file: File,
-  appkey: string
+  file: File
 ): Promise<ApiResponse<AiTagSuggestionData>> {
   const formData = new FormData()
   formData.append('image', file)
 
-  return request<AiTagSuggestionData>('/images/suggest-tags', withApiKey(appkey, {
+  return request<AiTagSuggestionData>('/images/suggest-tags', withAdminAuth({
     method: 'POST',
     body: formData,
   }))
@@ -133,14 +135,13 @@ export async function suggestImageTags(
 /** 提交预生成上传 */
 export async function commitImageUpload(
   uploadToken: string,
-  tags: string[],
-  appkey: string
+  tags: string[]
 ): Promise<ApiResponse<UploadData>> {
   const formData = new FormData()
   formData.append('upload_token', uploadToken)
   formData.append('tags', tags.join(','))
 
-  return request<UploadData>('/images/commit', withApiKey(appkey, {
+  return request<UploadData>('/images/commit', withAdminAuth({
     method: 'POST',
     body: formData,
   }))
@@ -148,10 +149,9 @@ export async function commitImageUpload(
 
 /** 删除图片 */
 export async function deleteImage(
-  id: number,
-  appkey: string
+  id: number
 ): Promise<ApiResponse<null>> {
-  return request<null>(`/images/${id}`, withApiKey(appkey, {
+  return request<null>(`/images/${id}`, withAdminAuth({
     method: 'DELETE',
   }))
 }
@@ -159,17 +159,16 @@ export async function deleteImage(
 /** 更新图片标签 */
 export async function updateTags(
   id: number,
-  tags: string[],
-  appkey: string
+  tags: string[]
 ): Promise<ApiResponse<null>> {
-  return request<null>(`/images/${id}?tags=${encodeURIComponent(tags.join(','))}`, withApiKey(appkey, {
+  return request<null>(`/images/${id}?tags=${encodeURIComponent(tags.join(','))}`, withAdminAuth({
     method: 'PATCH',
   }))
 }
 
 /** 清除缓存 */
-export async function clearCache(appkey: string): Promise<ApiResponse<null>> {
-  return request<null>('/cache', withApiKey(appkey, {
+export async function clearCache(): Promise<ApiResponse<null>> {
+  return request<null>('/cache', withAdminAuth({
     method: 'DELETE',
   }))
 }

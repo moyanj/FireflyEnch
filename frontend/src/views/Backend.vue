@@ -1,14 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 import {
-  deleteImage,
   clearCache,
+  deleteImage,
+  getCaptcha,
+  login,
   suggestImageTags,
   uploadImage,
 } from '@/api'
+import { clearAdminToken, getAdminToken, isAdminLoggedIn, setAdminToken } from '@/auth'
+
+const router = useRouter()
 
 const appkey = ref('')
+const captcha = ref('')
+const captchaId = ref('')
+const captchaUrl = ref('')
+const loginError = ref('')
+const loginMessage = ref('')
+const isLoggingIn = ref(false)
+
+const isAuthed = ref(isAdminLoggedIn())
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
@@ -34,8 +47,8 @@ const deleteConfirm = ref(false)
 const clearSuccess = ref(false)
 
 const hasSelectedFile = computed(() => selectedFile.value !== null)
-const canSuggestTags = computed(() => hasSelectedFile.value && !isSuggesting.value && !isUploading.value)
-const canCommitUpload = computed(() => hasSelectedFile.value && !isUploading.value && !isSuggesting.value)
+const canSuggestTags = computed(() => isAuthed.value && hasSelectedFile.value && !isSuggesting.value && !isUploading.value)
+const canCommitUpload = computed(() => isAuthed.value && hasSelectedFile.value && !isUploading.value && !isSuggesting.value)
 
 function uniqueTags(input: string[]): string[] {
   const seen = new Set<string>()
@@ -70,17 +83,61 @@ const mergedTagsPreview = computed(() => {
   return uniqueTags([...manualTags, ...enabledSuggestedTags])
 })
 
-function requireAppkey(): boolean {
-  if (appkey.value.trim()) {
-    return true
-  }
-
-  alert('请输入管理员密码')
-  return false
-}
-
 function resetSuggestionState() {
   suggestedTags.value = []
+}
+
+function setLoggedOut() {
+  clearAdminToken()
+  isAuthed.value = false
+  appkey.value = ''
+  captcha.value = ''
+  captchaId.value = ''
+  captchaUrl.value = ''
+  loginError.value = ''
+  loginMessage.value = ''
+}
+
+async function refreshCaptcha() {
+  const res = await getCaptcha()
+  captchaId.value = res.captchaId
+  captchaUrl.value = res.imageUrl
+}
+
+async function handleLogin() {
+  if (!appkey.value.trim()) {
+    loginError.value = '请输入管理员密码'
+    return
+  }
+
+  if (!captcha.value.trim() || !captchaId.value) {
+    loginError.value = '请先完成验证码'
+    return
+  }
+
+  isLoggingIn.value = true
+  loginError.value = ''
+  loginMessage.value = ''
+
+  try {
+    const res = await login(appkey.value.trim(), captcha.value.trim(), captchaId.value)
+    if (res.code === 200) {
+      setAdminToken(res.data.token)
+      isAuthed.value = true
+      loginMessage.value = '登录成功'
+      await router.replace('/backend')
+    } else {
+      loginError.value = res.message
+      await refreshCaptcha()
+      captcha.value = ''
+    }
+  } catch {
+    loginError.value = '登录失败'
+    await refreshCaptcha()
+    captcha.value = ''
+  } finally {
+    isLoggingIn.value = false
+  }
 }
 
 function onFileChange(e: Event) {
@@ -126,8 +183,6 @@ function removeSuggestedTag(id: number) {
 }
 
 async function handleSuggestTags() {
-  if (!requireAppkey()) return
-
   if (!selectedFile.value) {
     alert('请选择图片')
     return
@@ -139,14 +194,15 @@ async function handleSuggestTags() {
   uploadError.value = ''
 
   try {
-    const res = await suggestImageTags(selectedFile.value, appkey.value.trim())
+    const res = await suggestImageTags(selectedFile.value)
     if (res.code === 200) {
       suggestedTags.value = createSuggestedTagItems(res.data.suggested_tags)
-      if (res.data.suggested_tags.length === 0) {
-        uploadMessage.value = '当前没有可用的 AI 建议标签'
-      } else {
-        uploadMessage.value = 'AI 建议标签已生成，可直接上传或继续手动调整'
-      }
+      uploadMessage.value = res.data.suggested_tags.length === 0
+        ? '当前没有可用的 AI 建议标签'
+        : 'AI 建议标签已生成，可直接上传或继续手动调整'
+    } else if (res.code === 401) {
+      setLoggedOut()
+      loginError.value = '登录已失效，请重新登录'
     } else {
       uploadError.value = res.message
     }
@@ -158,8 +214,6 @@ async function handleSuggestTags() {
 }
 
 async function handleUpload() {
-  if (!requireAppkey()) return
-
   if (!selectedFile.value) {
     alert('请选择图片')
     return
@@ -170,11 +224,7 @@ async function handleUpload() {
   uploadMessage.value = ''
   uploadError.value = ''
   try {
-    const res = await uploadImage(
-      selectedFile.value,
-      mergedTagsPreview.value,
-      appkey.value.trim(),
-    )
+    const res = await uploadImage(selectedFile.value, mergedTagsPreview.value)
 
     if (res.code === 201) {
       uploadSuccess.value = true
@@ -186,6 +236,9 @@ async function handleUpload() {
       if (fileInput.value) {
         fileInput.value.value = ''
       }
+    } else if (res.code === 401) {
+      setLoggedOut()
+      loginError.value = '登录已失效，请重新登录'
     } else {
       uploadError.value = res.message
     }
@@ -197,8 +250,6 @@ async function handleUpload() {
 }
 
 async function handleDelete() {
-  if (!requireAppkey()) return
-
   if (!imageId.value) {
     alert('请输入图片 ID')
     return
@@ -211,11 +262,14 @@ async function handleDelete() {
 
   isUploading.value = true
   try {
-    const res = await deleteImage(parseInt(imageId.value, 10), appkey.value.trim())
+    const res = await deleteImage(parseInt(imageId.value, 10))
     if (res.code === 204) {
       alert('删除成功')
       imageId.value = ''
       deleteConfirm.value = false
+    } else if (res.code === 401) {
+      setLoggedOut()
+      loginError.value = '登录已失效，请重新登录'
     } else {
       alert(res.message)
     }
@@ -231,17 +285,18 @@ function cancelDelete() {
 }
 
 async function handleClearCache() {
-  if (!requireAppkey()) return
-
   isUploading.value = true
   clearSuccess.value = false
   try {
-    const res = await clearCache(appkey.value.trim())
+    const res = await clearCache()
     if (res.code === 200) {
       clearSuccess.value = true
       setTimeout(() => {
         clearSuccess.value = false
       }, 3000)
+    } else if (res.code === 401) {
+      setLoggedOut()
+      loginError.value = '登录已失效，请重新登录'
     } else {
       alert(res.message)
     }
@@ -251,30 +306,67 @@ async function handleClearCache() {
     isUploading.value = false
   }
 }
+
+function handleLogout() {
+  setLoggedOut()
+  clearFileSelection()
+}
+
+onMounted(async () => {
+  if (!getAdminToken()) {
+    await refreshCaptcha()
+    return
+  }
+
+  isAuthed.value = true
+})
 </script>
 
 <template>
   <div class="backend">
-    <div class="admin">
-      <div class="admin__header">
-        <div class="admin__welcome">
-          <h1 class="admin__title">管理后台</h1>
-          <p class="admin__desc">图片可直接上传，AI 建议标签为独立可选能力</p>
-        </div>
-      </div>
+    <div v-if="!isAuthed" class="login-shell">
+      <div class="login-card">
+        <h1 class="admin__title">管理后台登录</h1>
+        <p class="admin__desc">先登录，再进入上传与管理。</p>
 
-      <div class="admin__credential-card">
         <div class="admin__field">
-          <label for="admin-appkey" class="admin__label">管理员密码 / appkey</label>
+          <label for="admin-appkey" class="admin__label">管理员密码</label>
           <input
             id="admin-appkey"
             v-model="appkey"
             type="password"
             class="admin__input"
-            placeholder="请输入 appkey"
+            placeholder="请输入密码"
             autocomplete="current-password"
           >
         </div>
+
+        <div class="login-captcha">
+          <img v-if="captchaUrl" :src="captchaUrl" alt="验证码" class="login-captcha__image">
+          <button class="admin__btn admin__btn--secondary" @click="refreshCaptcha">刷新验证码</button>
+        </div>
+
+        <div class="admin__field">
+          <label class="admin__label">验证码</label>
+          <input v-model="captcha" type="text" class="admin__input" placeholder="请输入验证码">
+        </div>
+
+        <button class="admin__btn admin__btn--primary" :disabled="isLoggingIn" @click="handleLogin">
+          {{ isLoggingIn ? '登录中...' : '登录' }}
+        </button>
+
+        <div v-if="loginMessage" class="admin__success">✓ {{ loginMessage }}</div>
+        <div v-if="loginError" class="admin__error">{{ loginError }}</div>
+      </div>
+    </div>
+
+    <div v-else class="admin">
+      <div class="admin__header">
+        <div class="admin__welcome">
+          <h1 class="admin__title">管理后台</h1>
+          <p class="admin__desc">已登录，管理请求会自动携带 token。</p>
+        </div>
+        <button class="admin__btn admin__btn--secondary" @click="handleLogout">退出登录</button>
       </div>
 
       <div class="admin__grid">
@@ -308,22 +400,14 @@ async function handleClearCache() {
               <input v-model="tags" type="text" class="admin__input" placeholder="输入标签，用逗号分隔">
             </div>
 
-            <button
-              class="admin__btn admin__btn--secondary"
-              :disabled="!canSuggestTags"
-              @click="handleSuggestTags"
-            >
+            <button class="admin__btn admin__btn--secondary" :disabled="!canSuggestTags" @click="handleSuggestTags">
               {{ isSuggesting ? '生成建议中...' : 'AI 建议标签' }}
             </button>
 
             <div v-if="suggestedTags.length" class="admin__field">
               <label class="admin__label">AI 建议</label>
               <div class="admin__suggested-list">
-                <div
-                  v-for="tag in suggestedTags"
-                  :key="tag.id"
-                  class="admin__suggested-item"
-                >
+                <div v-for="tag in suggestedTags" :key="tag.id" class="admin__suggested-item">
                   <label class="admin__suggested-toggle">
                     <input v-model="tag.enabled" type="checkbox">
                     <span>上传</span>
@@ -335,11 +419,7 @@ async function handleClearCache() {
                     placeholder="编辑 AI 标签"
                     @blur="normalizeSuggestedTag(tag)"
                   >
-                  <button
-                    type="button"
-                    class="admin__tag-remove"
-                    @click="removeSuggestedTag(tag.id)"
-                  >
+                  <button type="button" class="admin__tag-remove" @click="removeSuggestedTag(tag.id)">
                     删除
                   </button>
                 </div>
@@ -359,11 +439,7 @@ async function handleClearCache() {
               </div>
             </div>
 
-            <button
-              class="admin__btn admin__btn--primary"
-              :disabled="!canCommitUpload"
-              @click="handleUpload"
-            >
+            <button class="admin__btn admin__btn--primary" :disabled="!canCommitUpload" @click="handleUpload">
               {{ isUploading ? '上传中...' : '直接上传' }}
             </button>
 
@@ -446,6 +522,39 @@ async function handleClearCache() {
 </template>
 
 <style scoped>
+.backend {
+  min-height: 100%;
+}
+
+.login-shell {
+  min-height: calc(100vh - 120px);
+  display: grid;
+  place-items: center;
+  padding: var(--space-xl) var(--space-lg);
+}
+
+.login-card {
+  width: min(520px, 100%);
+  padding: var(--space-2xl);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.login-captcha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.login-captcha__image {
+  height: 52px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: #fff;
+}
+
 .admin {
   max-width: 1200px;
   margin: 0 auto;
@@ -459,6 +568,7 @@ async function handleClearCache() {
   margin-bottom: var(--space-xl);
   padding-bottom: var(--space-lg);
   border-bottom: 1px solid var(--color-border-subtle);
+  gap: var(--space-md);
 }
 
 .admin__title {
@@ -473,12 +583,47 @@ async function handleClearCache() {
   font-size: 0.9rem;
 }
 
-.admin__credential-card {
-  margin-bottom: var(--space-xl);
-  padding: var(--space-lg);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+.admin__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.admin__label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.admin__input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.admin__btn {
+  padding: 0.85rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.admin__btn--primary {
+  background-color: var(--color-accent);
+  color: #101418;
+}
+
+.admin__btn--secondary {
+  background-color: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.admin__btn--danger {
+  background-color: #b33a3a;
+  color: #fff;
 }
 
 .admin__grid {
@@ -517,154 +662,35 @@ async function handleClearCache() {
   border: 2px dashed var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    background-color var(--transition-fast);
-  overflow: hidden;
-}
-
-.admin__upload-area:hover {
-  border-color: var(--color-accent);
-  background-color: var(--color-accent-glow);
+  min-height: 220px;
 }
 
 .admin__file-input-hidden {
   display: none;
 }
 
-.admin__upload-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  padding: var(--space-2xl);
-  color: var(--color-text-muted);
-}
-
-.admin__upload-icon {
-  font-size: 2.5rem;
-  color: var(--color-accent);
-  opacity: 0.7;
-}
-
-.admin__upload-text {
-  font-size: 0.95rem;
-}
-
-.admin__upload-hint {
-  font-size: 0.75rem;
-  opacity: 0.7;
-}
-
+.admin__upload-placeholder,
 .admin__upload-preview {
-  position: relative;
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+}
+
+.admin__upload-placeholder {
+  color: var(--color-text-muted);
+  text-align: center;
 }
 
 .admin__preview-img {
   width: 100%;
-  height: 200px;
-  object-fit: cover;
-  display: block;
+  height: 220px;
+  object-fit: contain;
 }
 
 .admin__clear-btn {
   position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  font-size: 0.85rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast);
-}
-
-.admin__clear-btn:hover {
-  background-color: rgba(220, 53, 69, 0.8);
-}
-
-.admin__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.admin__label {
-  color: var(--color-text-secondary);
-  font-size: 0.85rem;
-}
-
-.admin__input {
-  width: 100%;
-  padding: var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-size: 0.95rem;
-  outline: none;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.admin__input:focus {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
-}
-
-.admin__btn {
-  width: 100%;
-  padding: var(--space-md);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background-color var(--transition-fast),
-    opacity var(--transition-fast);
-}
-
-.admin__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.admin__btn--primary {
-  background-color: var(--color-accent);
-  color: var(--color-bg);
-}
-
-.admin__btn--primary:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-}
-
-.admin__btn--danger {
-  background-color: #dc3545;
-  color: white;
-}
-
-.admin__btn--danger:hover:not(:disabled) {
-  background-color: #c82333;
-}
-
-.admin__btn--secondary {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-}
-
-.admin__btn--secondary:hover:not(:disabled) {
-  background-color: var(--color-surface-hover);
-  border-color: var(--color-text-secondary);
+  top: 8px;
+  right: 8px;
 }
 
 .admin__suggested-list {
@@ -675,139 +701,37 @@ async function handleClearCache() {
 
 .admin__suggested-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto 1fr auto;
   gap: var(--space-sm);
   align-items: center;
 }
 
 .admin__suggested-toggle {
-  display: inline-flex;
+  display: flex;
+  gap: var(--space-xs);
   align-items: center;
-  gap: 0.35rem;
-  color: var(--color-text-secondary);
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.admin__suggested-input {
-  min-width: 0;
-}
-
-.admin__tag-remove {
-  border: 1px solid var(--color-border);
-  background-color: var(--color-bg);
-  color: var(--color-text-secondary);
-  padding: 0.75rem 0.9rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-
-.admin__tag-remove:hover {
-  border-color: #dc3545;
-  color: #dc3545;
-}
-
-.admin__text-btn {
-  align-self: flex-start;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--color-accent);
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.admin__text-btn:hover {
-  color: var(--color-accent-hover);
 }
 
 .admin__tag-summary {
-  min-height: 44px;
   padding: var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background-color: var(--color-bg);
   color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-.admin__confirm {
-  padding: var(--space-md);
-  background-color: rgba(220, 53, 69, 0.1);
-  border: 1px solid rgba(220, 53, 69, 0.3);
-  border-radius: var(--radius-sm);
-}
-
-.admin__confirm-text {
-  color: var(--color-text);
-  font-size: 0.9rem;
-  margin-bottom: var(--space-md);
-}
-
-.admin__confirm-actions {
-  display: flex;
-  gap: var(--space-sm);
 }
 
 .admin__success {
-  padding: var(--space-md);
-  background-color: rgba(40, 167, 69, 0.1);
-  border: 1px solid rgba(40, 167, 69, 0.3);
-  border-radius: var(--radius-sm);
-  color: #28a745;
-  font-size: 0.9rem;
+  color: var(--color-accent);
 }
 
 .admin__error {
-  padding: var(--space-md);
-  background-color: rgba(220, 53, 69, 0.1);
-  border: 1px solid rgba(220, 53, 69, 0.3);
-  border-radius: var(--radius-sm);
-  color: #dc3545;
-  font-size: 0.9rem;
-}
-
-.admin__divider {
-  height: 1px;
-  background-color: var(--color-border-subtle);
-  margin: var(--space-sm) 0;
-}
-
-.admin__link-btn,
-.admin__link {
-  color: var(--color-accent);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
-
-.admin__link-btn:hover,
-.admin__link:hover {
-  color: var(--color-accent-hover);
+  color: #ff7a7a;
 }
 
 .admin__footer {
-  text-align: center;
+  padding-bottom: var(--space-xl);
 }
 
-@media (max-width: 768px) {
-  .admin {
-    padding: var(--space-md);
-  }
-
-  .admin__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .admin__confirm-actions {
-    flex-direction: column;
-  }
-
-  .admin__suggested-item {
-    grid-template-columns: 1fr;
-  }
+.admin__link {
+  color: var(--color-text-secondary);
 }
 </style>

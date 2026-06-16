@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
+const appVersion = __APP_VERSION__
 const version = ref('')
 const buildTime = ref('')
 
@@ -24,7 +25,7 @@ onMounted(() => {
 
       <h1 class="about__title">FireflyEnch</h1>
       <p class="about__version">
-        {{ version ? `V ${version}` : 'V 2.4.6' }}
+        {{ appVersion }}
       </p>
 
       <p class="about__slogan">点亮你的幻想，每次闪烁新发现。</p>
@@ -63,7 +64,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
+  background:
     radial-gradient(2px 2px at 20% 30%, var(--color-accent-glow), transparent),
     radial-gradient(2px 2px at 80% 70%, var(--color-accent-glow), transparent),
     radial-gradient(1px 1px at 40% 80%, var(--color-accent-glow), transparent),
@@ -74,8 +75,13 @@ onMounted(() => {
 }
 
 @keyframes twinkle {
-  0% { opacity: 0.3; }
-  100% { opacity: 0.6; }
+  0% {
+    opacity: 0.3;
+  }
+
+  100% {
+    opacity: 0.6;
+  }
 }
 
 .about__card {
@@ -188,16 +194,16 @@ onMounted(() => {
   .about {
     padding: var(--space-xl);
   }
-  
+
   .about__card {
     max-width: 500px;
     padding: var(--space-2xl);
   }
-  
+
   .about__title {
     font-size: 2rem;
   }
-  
+
   .about__logo-img {
     width: 140px;
   }
@@ -208,25 +214,25 @@ onMounted(() => {
     padding: var(--space-lg);
     min-height: 60vh;
   }
-  
+
   .about__card {
     max-width: 450px;
     padding: var(--space-xl);
   }
-  
+
   .about__title {
     font-size: 1.8rem;
   }
-  
+
   .about__slogan {
     font-size: 1rem;
   }
-  
+
   .about__links {
     flex-direction: column;
     gap: var(--space-md);
   }
-  
+
   .about__link {
     width: 100%;
   }
@@ -237,24 +243,24 @@ onMounted(() => {
     padding: var(--space-md);
     min-height: 50vh;
   }
-  
+
   .about__card {
     padding: var(--space-lg);
     border-radius: var(--radius-lg);
   }
-  
+
   .about__title {
     font-size: 1.5rem;
   }
-  
+
   .about__logo-img {
     width: 120px;
   }
-  
+
   .about__slogan {
     font-size: 0.9rem;
   }
-  
+
   .about__meta {
     font-size: 0.75rem;
   }

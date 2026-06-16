@@ -6,6 +6,7 @@ import json
 import os
 import random
 import re
+import secrets
 import time
 import uuid
 import hashlib
@@ -74,6 +75,9 @@ from utils import (
 # 验证码存储（captcha_id -> {code, expire}）
 captcha_store: Dict[str, Dict[str, Any]] = {}
 
+# 登录态存储（token -> created_at）
+login_tokens: Dict[str, float] = {}
+
 
 class PreparedUpload(TypedDict):
     """预上传文件信息"""
@@ -111,7 +115,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=APP_NAME,
-    version="2.5.0",
+    version=open("VERSION").read(),
     description="FireflyEnch - 简单的图片画廊系统",
     lifespan=lifespan,
 )
@@ -300,13 +304,20 @@ def extract_ai_tags(content_text: str) -> list[str]:
 
 async def verify_appkey(
     x_api_key: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None),
     appkey: Optional[str] = Query(None),
 ) -> bool:
-    """API 密钥验证（支持 Header 和 Query 两种方式）"""
+    """API 密钥验证（支持 API Key 和 Bearer token）"""
     candidate = x_api_key or appkey
-    if candidate != SECRET_KEY:
-        raise HTTPException(status_code=401, detail="无权限")
-    return True
+    if candidate == SECRET_KEY:
+        return True
+
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+        if token in login_tokens:
+            return True
+
+    raise HTTPException(status_code=401, detail="无权限")
 
 
 # ==================== 上传处理 ====================
@@ -398,7 +409,8 @@ async def login(
         raise HTTPException(status_code=401, detail="密码错误")
 
     # 生成 token
-    token = hashlib.sha256(f"{appkey}{time.time()}".encode()).hexdigest()
+    token = secrets.token_urlsafe(32)
+    login_tokens[token] = time.time()
     return jsonify({"token": token}, "登录成功")
 
 
