@@ -1,5 +1,5 @@
 # Use Python slim image to reduce size
-FROM python:3.12.5-slim
+FROM python:3.14.5-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -20,6 +20,9 @@ RUN uv sync --frozen --no-dev
 # Copy the rest of the application
 COPY . .
 
+# Copy frontend assets
+COPY frontend/dist ./files
+
 # Create a non-root user for running the application
 RUN adduser --system --group moyan \
     && chown -R moyan:moyan /moyan
@@ -31,4 +34,4 @@ USER moyan
 EXPOSE 8896
 
 # Command to run the application
-CMD ["uv", "run", "python", "app.py"]
+CMD ["uv", "run", "app.py"]

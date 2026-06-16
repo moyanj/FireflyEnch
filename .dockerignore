@@ -2,7 +2,8 @@ mfb.py
 __pycache__/
 imgs/
 frontend/
+!frontend/dist/
 test.py
-build.sh
 .git/
-mfb.py
+data/
+.venv/

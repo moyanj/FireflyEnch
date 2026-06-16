@@ -1,6 +1,4 @@
-# Define variables
-PYTHON = python3
-VERSION = 2.4.6
+VERSION = $(shell cat VERSION)
 
 # Define targets and dependencies
 all: frontend docker
@@ -8,15 +6,16 @@ all: frontend docker
 init:
 	@echo 开始安装环境
 	uv sync
+	cd frontend && pnpm i
 
 frontend: init
-	uv run python mfb.py frontend -p tjs -p rjs --dist files -d version=${VERSION} -d type=rel
+	pnpm -C frontend run build
 
 docker:
 	docker build -t fireflyench:${VERSION} .
 
 run:
-	uv run python app.py
+	uv run app.py
 
 clean:
 	rm -rf uploads/
