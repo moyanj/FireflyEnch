@@ -61,13 +61,13 @@ class Image(Model):
         if not tags:
             return []
         
-        # 构建查询条件：任一标签匹配
-        from tortoise.expressions import Q
-        query = Q()
-        for tag in tags:
-            query |= Q(tags__contains=tag)
-        
-        return await cls.filter(query)
+        # SQLite 的 JSONField __contains 不可用，使用 Python 端过滤
+        all_images = await cls.all()
+        matched = []
+        for image in all_images:
+            if image.tags and any(tag in image.tags for tag in tags):
+                matched.append(image)
+        return matched
 
     @classmethod
     async def create_image(cls, filename: str, tags: List[str]) -> "Image":

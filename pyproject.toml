@@ -5,14 +5,15 @@ description = "FireflyEnch - 简单的图片画廊系统"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "sanic>=24.6.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
     "aiofiles>=23.2.1",
-    "sanic-ext>=23.12.0",
     "tortoise-orm>=0.21.7",
     "aerich>=0.8.1",
     "click>=8.1.7",
     "jinja2>=3.1.4",
-    "pydantic>=2.0.0"
+    "pydantic>=2.0.0",
+    "python-multipart>=0.0.6"
 ]
 
 [project.scripts]
@@ -30,6 +31,9 @@ dev = [
 [build-system]
 requires = ["setuptools>=68.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["app", "models", "db", "mfb"]
 
 [tool.black]
 line-length = 88
