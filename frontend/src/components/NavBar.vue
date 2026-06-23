@@ -70,7 +70,7 @@ onUnmounted(() => {
         <RouterLink
           to="/backend"
           class="navbar__link"
-          :class="{ 'navbar__link--active': route.path === '/backend' }"
+          :class="{ 'navbar__link--active': route.path.startsWith('/backend') }"
           @click="closeMobileMenu"
         >
           管理

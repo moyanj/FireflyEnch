@@ -79,6 +79,31 @@
   --z-elevated: 10;
   --z-modal: 100;
   --z-toast: 200;
+
+  /* Breakpoints (for reference in JS, CSS uses media queries directly) */
+  --bp-mobile: 480px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+  --bp-wide: 1280px;
+
+  /* Backend Terminal Theme - 黑曜石终端 */
+  --terminal-bg: #0a0e14;
+  --terminal-surface: #111820;
+  --terminal-surface-hover: #1a2230;
+  --terminal-border: #1e2a3a;
+  --terminal-border-active: #2a3a50;
+  --terminal-text: #c5cdd8;
+  --terminal-text-bright: #e6edf3;
+  --terminal-text-dim: #546478;
+  --terminal-accent: #a8e600;
+  --terminal-accent-glow: rgba(168, 230, 0, 0.15);
+  --terminal-danger: #e54545;
+  --terminal-danger-dim: rgba(229, 69, 69, 0.15);
+  --terminal-warning: #f5a623;
+  --terminal-success: #3dd68c;
+  --terminal-info: #58a6ff;
+  --terminal-sidebar-width: 260px;
+  --terminal-header-height: 56px;
 }
 
 /* ============================================

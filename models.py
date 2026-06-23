@@ -41,11 +41,34 @@ class Image(Model):
         return await cls.get_or_none(id=image_id)
 
     @classmethod
-    async def get_all(cls, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
-        """分页获取所有图片"""
+    def _resolve_sort(cls, sort: str) -> str:
+        """将排序别名映射为 Tortoise ORM 排序字段"""
+        sort_map = {
+            "id_desc": "-id",
+            "id_asc": "id",
+            "created_at_desc": "-created_at",
+            "created_at_asc": "created_at",
+        }
+        return sort_map.get(sort, "-id")
+
+    @classmethod
+    async def get_all(
+        cls,
+        page: int = 1,
+        page_size: int = 20,
+        sort: str = "id_desc",
+        nsfw: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """分页获取所有图片，支持排序和NSFW过滤"""
         offset = (page - 1) * page_size
-        images = await cls.all().offset(offset).limit(page_size)
-        total = await cls.all().count()
+        order_field = cls._resolve_sort(sort)
+
+        queryset = cls.all()
+        if nsfw is not None:
+            queryset = queryset.filter(nsfw=nsfw)
+
+        images = await queryset.order_by(order_field).offset(offset).limit(page_size)
+        total = await queryset.count() if nsfw is not None else await cls.all().count()
 
         return {
             "total": total,
@@ -68,18 +91,60 @@ class Image(Model):
         return await cls.get_or_none(id=random_id)
 
     @classmethod
-    async def get_by_tags(cls, tags: List[str]) -> List["Image"]:
-        """根据标签获取图片"""
+    async def get_by_tags(
+        cls,
+        tags: List[str],
+        page: int = 1,
+        page_size: int = 20,
+        sort: str = "id_desc",
+        nsfw: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """根据标签获取图片，支持分页、排序和NSFW过滤"""
         if not tags:
-            return []
+            return {
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "images": [],
+                "last": True,
+            }
 
         # SQLite 的 JSONField __contains 不可用，使用 Python 端过滤
-        all_images = await cls.all()
+        queryset = cls.all()
+        if nsfw is not None:
+            queryset = queryset.filter(nsfw=nsfw)
+
+        all_images = await queryset
         matched = []
         for image in all_images:
             if image.tags and any(tag in image.tags for tag in tags):
                 matched.append(image)
-        return matched
+
+        # 排序
+        order_field = cls._resolve_sort(sort)
+        reverse = order_field.startswith("-")
+        field_name = order_field.lstrip("-")
+
+        def sort_key(img: "Image"):
+            val = getattr(img, field_name, None)
+            if val is None:
+                return (1, "")  # null 排到最后
+            return (0, val)
+
+        matched.sort(key=sort_key, reverse=reverse)
+
+        # 分页
+        total = len(matched)
+        offset = (page - 1) * page_size
+        page_images = matched[offset : offset + page_size]
+
+        return {
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "images": [img.to_dict() for img in page_images],
+            "last": offset + page_size >= total,
+        }
 
     @classmethod
     async def create_image(

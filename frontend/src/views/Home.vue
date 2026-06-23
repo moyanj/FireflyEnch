@@ -26,11 +26,10 @@ async function fetchImages() {
     images.value.push(...data.images);
     hasMore.value = !data.last
     currentPage.value = data.page + 1
-  } catch (e) {
+  } catch {
     errorMsg.value = '网络连接失败'
   }
 }
-
 
 // 无限滚动
 const { isLoading } = useInfiniteScroll(fetchImages)

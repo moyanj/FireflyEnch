@@ -6,6 +6,7 @@ import type {
   Image,
   LoginData,
   AiTagSuggestionData,
+  AdminImageQuery,
 } from './types'
 import { getAdminToken } from '@/auth'
 
@@ -74,6 +75,20 @@ export async function login(
 /** 获取图片列表（分页） */
 export async function getImages(page: number = 1): Promise<ApiResponse<ImagesListData>> {
   return request<ImagesListData>(`/images?page=${page}`)
+}
+
+/** 管理端图片列表查询（支持筛选/排序/分页） */
+export async function getAdminImages(params: AdminImageQuery = {}): Promise<ApiResponse<ImagesListData>> {
+  const query = new URLSearchParams()
+  if (params.page) query.set('page', String(params.page))
+  if (params.page_size) query.set('page_size', String(params.page_size))
+  if (params.id !== undefined) query.set('id', String(params.id))
+  if (params.tag) query.set('tag', params.tag)
+  if (params.nsfw !== undefined) query.set('nsfw', String(params.nsfw))
+  if (params.sort) query.set('sort', params.sort)
+
+  const qs = query.toString()
+  return request<ImagesListData>(`/images${qs ? `?${qs}` : ''}`)
 }
 
 /** 获取单个图片信息 */
@@ -156,13 +171,15 @@ export async function deleteImage(
   }))
 }
 
-/** 更新图片标签 */
+/** 更新图片标签（JSON body 方式） */
 export async function updateTags(
   id: number,
   tags: string[]
 ): Promise<ApiResponse<null>> {
-  return request<null>(`/images/${id}?tags=${encodeURIComponent(tags.join(','))}`, withAdminAuth({
+  return request<null>(`/images/${id}`, withAdminAuth({
     method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tags }),
   }))
 }
 

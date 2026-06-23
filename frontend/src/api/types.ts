@@ -16,13 +16,23 @@ export interface Image {
   updated_at: string | null
 }
 
-/** 图片列表响应 */
+/** 图片列表响应（统一分页结构） */
 export interface ImagesListData {
   total: number
   page: number
   page_size: number
   images: Image[]
   last: boolean
+}
+
+/** 管理端图片查询参数 */
+export interface AdminImageQuery {
+  page?: number
+  page_size?: number
+  id?: number
+  tag?: string
+  nsfw?: boolean
+  sort?: 'id_desc' | 'id_asc' | 'created_at_desc' | 'created_at_asc'
 }
 
 /** 标签搜索响应 */

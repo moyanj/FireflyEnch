@@ -20,8 +20,28 @@ const router = createRouter({
     },
     {
       path: '/backend',
-      name: 'backend',
-      component: () => import('@/views/Backend.vue'),
+      component: () => import('@/views/backend/BackendLayout.vue'),
+      children: [
+        {
+          path: '',
+          redirect: '/backend/upload',
+        },
+        {
+          path: 'upload',
+          name: 'backend-upload',
+          component: () => import('@/views/backend/BackendUpload.vue'),
+        },
+        {
+          path: 'images',
+          name: 'backend-images',
+          component: () => import('@/views/backend/BackendImages.vue'),
+        },
+        {
+          path: 'system',
+          name: 'backend-system',
+          component: () => import('@/views/backend/BackendSystem.vue'),
+        },
+      ],
     },
     {
       path: '/about',

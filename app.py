@@ -14,6 +14,8 @@ import multiprocessing
 from contextlib import asynccontextmanager
 from typing import Optional, Dict, Any, TypedDict
 
+from pydantic import BaseModel
+
 import aiofiles
 import httpx
 import uvicorn
@@ -80,6 +82,11 @@ captcha_store: Dict[str, Dict[str, Any]] = {}
 
 # 登录态存储（token -> created_at）
 login_tokens: Dict[str, float] = {}
+
+
+class UpdateTagsBody(BaseModel):
+    """更新标签请求体"""
+    tags: list[str] = []
 
 
 class PreparedUpload(TypedDict):
@@ -546,26 +553,40 @@ async def upload_image(
 @app.get("/api/images")
 async def get_images(
     page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     tag: Optional[str] = Query(None, description="标签列表，逗号分隔"),
+    id: Optional[int] = Query(None, description="精确 ID 查找"),
+    nsfw: Optional[bool] = Query(None, description="NSFW 过滤: true=仅NSFW, false=仅SFW"),
+    sort: str = Query("id_desc", description="排序: id_desc, id_asc, created_at_desc, created_at_asc"),
 ) -> JSONResponse:
-    """获取图片列表（支持标签筛选和分页）"""
+    """获取图片列表（支持标签筛选、ID查找、NSFW过滤、排序和分页）"""
+    # 精确 ID 查找
+    if id is not None:
+        image = await Image.get_by_id(id)
+        if image:
+            return jsonify({
+                "total": 1,
+                "page": 1,
+                "page_size": 1,
+                "images": [image.to_dict()],
+                "last": True,
+            })
+        return jsonify({
+            "total": 0,
+            "page": 1,
+            "page_size": 1,
+            "images": [],
+            "last": True,
+        })
+
+    # 按标签筛选（含分页）
     if tag:
-        # 按标签筛选
         tag_list = parse_tags(tag)
-        images = await Image.get_by_tags(tag_list)
-        images = [img for img in images if await is_image_file(img.filename)]
-        return jsonify(
-            {"total": len(images), "images": [img.to_dict() for img in images]}
-        )
+        result = await Image.get_by_tags(tag_list, page, page_size, sort, nsfw)
+        return jsonify(result)
 
     # 分页查询
-    result = await Image.get_all(page=page, page_size=PAGE_SIZE)
-    if result["images"]:
-        # 过滤无效文件并随机打乱
-        result["images"] = [
-            img for img in result["images"] if await is_image_file(img["filename"])
-        ]
-        random.shuffle(result["images"])
+    result = await Image.get_all(page=page, page_size=page_size, sort=sort, nsfw=nsfw)
     return jsonify(result)
 
 
@@ -642,11 +663,18 @@ async def delete_image(
 @app.patch("/api/images/{image_id}")
 async def update_image_tags(
     image_id: int,
-    tags: str = Query("", description="新标签列表，逗号分隔"),
+    tags: str = Query("", description="新标签列表，逗号分隔(兼容旧版)"),
+    body: Optional[UpdateTagsBody] = None,
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
-    """更新图片标签"""
-    success = await Image.update_tags(image_id, parse_tags(tags))
+    """更新图片标签（支持 JSON body 和 query param 两种方式）"""
+    # 优先使用 JSON body
+    if body and body.tags:
+        parsed_tags = normalize_tags(body.tags)
+    else:
+        parsed_tags = parse_tags(tags)
+
+    success = await Image.update_tags(image_id, parsed_tags)
     if success:
         return jsonify(msg="完成")
     raise HTTPException(status_code=404, detail="图片未找到")

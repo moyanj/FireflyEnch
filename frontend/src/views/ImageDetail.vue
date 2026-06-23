@@ -10,6 +10,7 @@ const image = ref<Image | null>(null)
 const isLoading = ref(false)
 const errorMsg = ref('')
 const revealed = ref(false)
+const linkCopied = ref(false)
 
 const imageId = computed(() => Number(route.params.id))
 const imageUrl = computed(() => (
@@ -49,11 +50,23 @@ async function loadImageDetail() {
     }
 
     image.value = res.data
+    revealed.value = false
   } catch {
     image.value = null
     errorMsg.value = '加载图片详情失败'
   } finally {
     isLoading.value = false
+  }
+}
+
+async function copyImageLink() {
+  const url = window.location.href
+  try {
+    await navigator.clipboard.writeText(url)
+    linkCopied.value = true
+    setTimeout(() => { linkCopied.value = false }, 2000)
+  } catch {
+    // 静默失败
   }
 }
 
@@ -126,6 +139,14 @@ onMounted(loadImageDetail)
               <dt>更新时间</dt>
               <dd>{{ formatLocalDateTime(image.updated_at) }}</dd>
             </div>
+            <div class="detail__meta-row">
+              <dt>NSFW</dt>
+              <dd>
+                <span class="detail__nsfw-status" :class="{ 'detail__nsfw-status--active': image.nsfw }">
+                  {{ image.nsfw ? 'R18' : 'SFW' }}
+                </span>
+              </dd>
+            </div>
           </dl>
         </div>
 
@@ -136,6 +157,9 @@ onMounted(loadImageDetail)
           <a :href="imageUrl" download class="detail__action detail__action--secondary">
             下载图片
           </a>
+          <button class="detail__action detail__action--secondary" @click="copyImageLink">
+            复制链接
+          </button>
         </div>
       </aside>
     </div>
@@ -339,6 +363,21 @@ onMounted(loadImageDetail)
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-sm);
+}
+
+.detail__nsfw-status {
+  display: inline-flex;
+  padding: 2px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.detail__nsfw-status--active {
+  border-color: #dc2626;
+  color: #ef4444;
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .detail__action {
