@@ -9,6 +9,7 @@ const route = useRoute()
 const image = ref<Image | null>(null)
 const isLoading = ref(false)
 const errorMsg = ref('')
+const revealed = ref(false)
 
 const imageId = computed(() => Number(route.params.id))
 const imageUrl = computed(() => (
@@ -76,9 +77,19 @@ onMounted(loadImageDetail)
     </div>
 
     <div v-else-if="image" class="detail__layout">
-      <section class="detail__viewer">
-        <img :src="imageUrl" :alt="image.tags.join(', ')" class="detail__image">
-      </section>
+<section class="detail__viewer">
+          <div
+            class="detail__image-wrapper"
+            :class="{ 'detail__image-wrapper--blurred': image.nsfw && !revealed }"
+            @click="revealed = image.nsfw"
+          >
+            <img :src="imageUrl" :alt="image.tags.join(', ')" class="detail__image">
+            <div v-if="image.nsfw && !revealed" class="detail__nsfw-overlay">
+              <span class="detail__nsfw-badge">R18</span>
+              <span class="detail__nsfw-hint">点击显示图片内容</span>
+            </div>
+          </div>
+        </section>
 
       <aside class="detail__panel">
         <div class="detail__card">
@@ -185,6 +196,61 @@ onMounted(loadImageDetail)
   object-fit: contain;
   border-radius: var(--radius-md);
   background-color: var(--color-bg);
+}
+
+.detail__image-wrapper {
+  position: relative;
+}
+
+.detail__image-wrapper--blurred {
+  cursor: pointer;
+}
+
+.detail__image-wrapper--blurred img {
+  filter: blur(48px) saturate(0.2);
+  transform: scale(1.1);
+  pointer-events: none;
+}
+
+/* NSFW 覆盖层 */
+.detail__nsfw-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-md);
+  z-index: 1;
+}
+
+.detail__nsfw-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 28px;
+  border: 3px solid #dc2626;
+  border-radius: var(--radius-full);
+  color: #ef4444;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(220, 38, 38, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.detail__nsfw-hint {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.08em;
+  animation: pulse-hint 2s ease-in-out infinite;
+}
+
+@keyframes pulse-hint {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 .detail__panel {

@@ -17,6 +17,8 @@ class Image(Model):
     updated_at = fields.DatetimeField(auto_now=True)
     phash = fields.CharField(max_length=64)
     sha256 = fields.CharField(max_length=64)
+    nsfw = fields.BooleanField(default=False)
+    nsfw_score = fields.FloatField(default=0.0)
 
     class Meta:  # type: ignore
         table = "images"
@@ -27,6 +29,8 @@ class Image(Model):
             "id": self.id,
             "filename": self.filename,
             "tags": self.tags,
+            "nsfw": self.nsfw,
+            "nsfw_score": self.nsfw_score,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -79,11 +83,21 @@ class Image(Model):
 
     @classmethod
     async def create_image(
-        cls, filename: str, tags: List[str], img_hash: Tuple[str, str]
+        cls,
+        filename: str,
+        tags: List[str],
+        img_hash: Tuple[str, str],
+        nsfw: bool = False,
+        nsfw_score: float = 0.0,
     ) -> "Image":
         """创建新图片记录"""
         return await cls.create(
-            filename=filename, tags=tags, sha256=img_hash[0], phash=img_hash[1]
+            filename=filename,
+            tags=tags,
+            sha256=img_hash[0],
+            phash=img_hash[1],
+            nsfw=nsfw,
+            nsfw_score=nsfw_score,
         )
 
     @classmethod

@@ -58,6 +58,9 @@ from config import (
     TEMP_UPLOAD_FOLDER,
 )
 
+# 导入 NSFW 检测器
+from nsfw_detector import NsfwDetector
+
 # 导入数据模型和工具函数
 from models import Image
 from utils import (
@@ -342,13 +345,25 @@ async def finalize_upload(
 
     # 保存文件（以 MD5 哈希命名）
     filename = f"{hashlib.sha1(content).hexdigest()}{ext.lower()}"
+
+    # NSFW 检测
+    nsfw_result = NsfwDetector().detect(content)
+
     await save_file(content, filename)
-    new_image = await Image.create_image(filename, normalize_tags(tags), img_hash)
+    new_image = await Image.create_image(
+        filename,
+        normalize_tags(tags),
+        img_hash,
+        nsfw=nsfw_result["nsfw"],
+        nsfw_score=nsfw_result["score"],
+    )
 
     result = {
         "id": new_image.id,
         "url": build_public_image_url(str(request.base_url), new_image.id),
         "tags": new_image.tags,
+        "nsfw": new_image.nsfw,
+        "nsfw_score": new_image.nsfw_score,
     }
     return jsonify(result, "上传成功", 201)
 
@@ -538,7 +553,7 @@ async def get_images(
         # 按标签筛选
         tag_list = parse_tags(tag)
         images = await Image.get_by_tags(tag_list)
-        images = [img for img in images if is_image_file(img.filename)]
+        images = [img for img in images if await is_image_file(img.filename)]
         return jsonify(
             {"total": len(images), "images": [img.to_dict() for img in images]}
         )
@@ -548,7 +563,7 @@ async def get_images(
     if result["images"]:
         # 过滤无效文件并随机打乱
         result["images"] = [
-            img for img in result["images"] if is_image_file(img["filename"])
+            img for img in result["images"] if await is_image_file(img["filename"])
         ]
         random.shuffle(result["images"])
     return jsonify(result)
@@ -591,7 +606,7 @@ async def get_image_thumbnail(image_id: int):
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
-    if not is_image_file(image.filename):
+    if not await is_image_file(image.filename):
         raise HTTPException(status_code=404, detail="图片文件不存在")
 
     thumbnail_path = await ensure_thumbnail(image.filename)

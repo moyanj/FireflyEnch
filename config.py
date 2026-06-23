@@ -58,6 +58,16 @@ CAPTCHA_LENGTH = 4
 # 验证码过期时间（秒），默认 5 分钟
 CAPTCHA_EXPIRE_SECONDS = 300
 
+# ==================== NSFW 检测配置 ====================
+
+# NSFW 检测模型路径（None 表示自动下载默认模型）
+NSFW_MODEL_PATH = None
+
+# NSFW 判定阈值
+NSFW_HENTAI_THRESHOLD = 0.5  # 二次元 NSFW
+NSFW_PORN_THRESHOLD = 0.5  # 真实 NSFW
+NSFW_SEXY_THRESHOLD = 0.6  # 擦边球阈值
+
 # ==================== AI 自动标签 ====================
 
 # 是否启用 AI 自动标签功能
@@ -70,7 +80,7 @@ AI_BASE_URL = "http://127.0.0.1:8350/v1"
 AI_API_KEY = "sk-ITfMuFSPqkIAV17fWK9cDdrFXjW0zd8B2ldtuWqbyRzCeXtd"
 
 # AI 模型名称
-AI_MODEL = "Qwen/Qwen3.5-35B-A3B"
+AI_MODEL = "qwen3.5-35b-a3b"
 
 # AI 请求超时时间（秒）
 AI_TIMEOUT_SECONDS = 30
@@ -87,7 +97,7 @@ AI_PROMPT = (
     "2. 按搜索价值从高到低排序：角色名（如有）> 发型/发色/瞳色 > 服装/武器 > 姿势 > 场景 > 画风。"
     "3. 确保包含画面中最独特的 2~3 个视觉焦点（如'机械臂''狐耳''断剑'）。"
     "4. 尽量使用该特征最常用的中文搜索词（例如'异色瞳'而非'不同颜色眼睛'）。"
-    "6. 禁止输出完整句子、编号、解释或额外说明。"
+    "5. 禁止输出完整句子、编号、解释或额外说明。"
     '最终只返回一个JSON对象，格式为 {"tags": ["标签1", "标签2", ...]}。'
 )
 

@@ -11,6 +11,7 @@ const props = defineProps<{
 const isLoaded = ref(false)
 const isError = ref(false)
 const imageAspectRatio = ref('1 / 1')
+const revealed = ref(false)
 
 function onLoaded(event: Event) {
   const target = event.target
@@ -23,12 +24,23 @@ function onLoaded(event: Event) {
 function onError() {
   isError.value = true
 }
+
+function handleReveal() {
+  if (props.image.nsfw) {
+    revealed.value = true
+  }
+}
 </script>
 
 <template>
-  <div class="card">
+  <div class="card" :class="{ 'card--nsfw': image.nsfw }">
     <RouterLink :to="`/image/${image.id}`" class="card__link">
-      <div class="card__image-wrapper" :style="{ aspectRatio: imageAspectRatio }">
+      <div
+        class="card__image-wrapper"
+        :class="{ 'card__image-wrapper--blurred': image.nsfw && !revealed }"
+        :style="{ aspectRatio: imageAspectRatio }"
+        @click="handleReveal"
+      >
         <img
           v-if="!isError"
           :src="getImageUrl(image.id, true)"
@@ -48,6 +60,12 @@ function onError() {
         <!-- Loading placeholder -->
         <div v-if="!isLoaded && !isError" class="card__placeholder">
           <div class="card__shimmer"></div>
+        </div>
+
+        <!-- NSFW 模糊覆盖层 -->
+        <div v-if="image.nsfw && !revealed" class="card__nsfw-overlay">
+          <span class="card__nsfw-badge">R18</span>
+          <span class="card__nsfw-hint">点击显示</span>
         </div>
       </div>
     </RouterLink>
@@ -84,6 +102,14 @@ function onError() {
   border-color: var(--color-accent-glow);
 }
 
+.card--nsfw {
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.card--nsfw:hover {
+  border-color: rgba(220, 38, 38, 0.6);
+}
+
 .card__link {
   display: block;
   text-decoration: none;
@@ -95,6 +121,13 @@ function onError() {
   min-height: 180px;
   background-color: var(--color-bg-elevated);
   overflow: hidden;
+}
+
+.card__image-wrapper--blurred img {
+  filter: blur(32px) saturate(0.3);
+  transform: scale(1.1);
+  pointer-events: none;
+  cursor: pointer;
 }
 
 .card__image {
@@ -135,6 +168,41 @@ function onError() {
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* NSFW 模糊覆盖层 */
+.card__nsfw-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  z-index: 1;
+}
+
+.card__nsfw-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border: 2px solid #dc2626;
+  border-radius: var(--radius-full);
+  color: #ef4444;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(220, 38, 38, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.card__nsfw-hint {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.08em;
 }
 
 .card__body {

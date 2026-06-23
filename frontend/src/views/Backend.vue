@@ -419,12 +419,20 @@ onMounted(async () => {
                     placeholder="编辑 AI 标签"
                     @blur="normalizeSuggestedTag(tag)"
                   >
-                  <button type="button" class="admin__tag-remove" @click="removeSuggestedTag(tag.id)">
+                  <button
+                    type="button"
+                    class="admin__btn admin__btn--secondary admin__btn--compact"
+                    @click="removeSuggestedTag(tag.id)"
+                  >
                     删除
                   </button>
                 </div>
               </div>
-              <button type="button" class="admin__text-btn" @click="addSuggestedTag">
+              <button
+                type="button"
+                class="admin__btn admin__btn--secondary admin__btn--compact admin__btn--inline"
+                @click="addSuggestedTag"
+              >
                 + 新增建议标签
               </button>
             </div>
@@ -608,6 +616,15 @@ onMounted(async () => {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
+}
+
+.admin__btn--compact {
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.admin__btn--inline {
+  align-self: flex-start;
 }
 
 .admin__btn--primary {

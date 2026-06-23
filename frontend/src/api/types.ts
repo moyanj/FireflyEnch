@@ -10,6 +10,8 @@ export interface Image {
   id: number
   filename: string
   tags: string[]
+  nsfw: boolean
+  nsfw_score: number
   created_at: string | null
   updated_at: string | null
 }
