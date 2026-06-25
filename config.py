@@ -10,8 +10,8 @@ APP_NAME = "FireflyEnch"
 # 服务端口
 APP_PORT = 8896
 
-# 应用密钥（用于 API 认证）
-APP_KEY = "12345678"
+# 最大Tag数量
+MAX_TAGS = 25
 
 # ==================== 存储配置 ====================
 
@@ -24,7 +24,7 @@ UPLOAD_FOLDER = os.path.join(DATA_PATH, "uploads")
 DB_FILE = os.path.join(DATA_PATH, "data.db")
 
 # API 密钥（与 APP_KEY 相同）
-SECRET_KEY = APP_KEY
+SECRET_KEY = "12345678"
 
 # ==================== 分页和缩略图 ====================
 
@@ -57,6 +57,14 @@ CAPTCHA_LENGTH = 4
 
 # 验证码过期时间（秒），默认 5 分钟
 CAPTCHA_EXPIRE_SECONDS = 300
+
+# ==================== 登录态配置 ====================
+
+# 登录态过期时间（秒），默认 24 小时
+LOGIN_TOKEN_EXPIRE_SECONDS = 86400
+
+# 登录态和验证码清理间隔（秒），默认 5 分钟
+CLEANUP_INTERVAL_SECONDS = 300
 
 # ==================== NSFW 检测配置 ====================
 

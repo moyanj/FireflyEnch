@@ -50,6 +50,9 @@ from config import (
     APP_PORT,
     CAPTCHA_EXPIRE_SECONDS,
     CAPTCHA_LENGTH,
+    CLEANUP_INTERVAL_SECONDS,
+    LOGIN_TOKEN_EXPIRE_SECONDS,
+    MAX_TAGS,
     PAGE_SIZE,
     PREPARED_UPLOAD_EXPIRE_SECONDS,
     SECRET_KEY,
@@ -106,6 +109,29 @@ prepared_uploads: Dict[str, PreparedUpload] = {}
 # ==================== 应用生命周期 ====================
 
 
+async def cleanup_expired_auth_data() -> None:
+    """定时清理过期的验证码和登录态"""
+    while True:
+        await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+        now = time.time()
+
+        # 清理过期验证码
+        expired_captcha_ids = [
+            cid for cid, data in captcha_store.items() if data["expire"] < now
+        ]
+        for cid in expired_captcha_ids:
+            del captcha_store[cid]
+
+        # 清理过期登录态
+        expired_tokens = [
+            token
+            for token, created_at in login_tokens.items()
+            if now - created_at > LOGIN_TOKEN_EXPIRE_SECONDS
+        ]
+        for token in expired_tokens:
+            del login_tokens[token]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时创建必要目录，初始化数据库"""
@@ -114,6 +140,7 @@ async def lifespan(app: FastAPI):
             prepared_uploads, TEMP_UPLOAD_FOLDER, PREPARED_UPLOAD_EXPIRE_SECONDS
         )
     )
+    asyncio.create_task(cleanup_expired_auth_data())
     async with RegisterTortoise(
         app,
         config=TORTOISE_ORM,
@@ -255,7 +282,10 @@ async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": f"文件名：{filename}"},
+                    {
+                        "type": "text",
+                        "text": f"文件名：{filename}。请基于图片内容提取 8~14 个中文搜索关键词（标签）。",
+                    },
                     {"type": "image_url", "image_url": {"url": data_url}},
                 ],
             },
@@ -344,7 +374,7 @@ async def finalize_upload(
     base, ext = os.path.splitext(original_filename)
     if not ext:
         ext = ".png"
-    if len(tags) >= 25:
+    if len(tags) >= MAX_TAGS:
         raise HTTPException(400, "过多的标签")
 
     # 检查图片是否重复（基于感知哈希）
