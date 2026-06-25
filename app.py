@@ -1,6 +1,7 @@
 """FireflyEnch 主应用模块"""
 
 import asyncio
+import base64
 from io import BytesIO
 import json
 import os
@@ -36,6 +37,7 @@ from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from captcha.image import ImageCaptcha
 from tortoise.contrib.fastapi import RegisterTortoise
+from tortoise import connections
 
 # 导入应用配置
 from config import (
@@ -69,10 +71,10 @@ from nsfw_detector import NsfwDetector
 # 导入数据模型和工具函数
 from models import Image, clear_tag_cache
 from utils import (
+    async_compute_hashes,
+    async_create_thumbnail_bytes,
     build_public_image_url,
     cleanup_expired_prepared_uploads,
-    compute_hash,
-    create_thumbnail_base64,
     get_safe_path,
     normalize_tags,
     parse_tags,
@@ -133,6 +135,17 @@ async def cleanup_expired_auth_data() -> None:
             del login_tokens[token]
 
 
+async def _ensure_db_indexes() -> None:
+    """确保常用查询字段存在数据库索引（幂等，已存在则跳过）"""
+    conn = connections.get("default")
+    for sql in [
+        "CREATE INDEX IF NOT EXISTS idx_images_sha256 ON images (sha256)",
+        "CREATE INDEX IF NOT EXISTS idx_images_nsfw ON images (nsfw)",
+        "CREATE INDEX IF NOT EXISTS idx_images_created_at ON images (created_at)",
+    ]:
+        await conn.execute_query(sql)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时创建必要目录，初始化数据库"""
@@ -147,6 +160,7 @@ async def lifespan(app: FastAPI):
         config=TORTOISE_ORM,
         generate_schemas=True,
     ):
+        await _ensure_db_indexes()
         yield
 
 
@@ -211,8 +225,18 @@ def get_thumbnail_path(filename: str) -> str:
     return os.path.join(THUMBNAIL_FOLDER, f"{stem}.webp")
 
 
+def _generate_thumbnail_sync(source_path: str, thumbnail_path: str) -> None:
+    """同步生成缩略图（CPU 密集，应在工作线程中调用）"""
+    with PILImage.open(source_path) as image:
+        image = image.convert("RGB")
+        image.thumbnail(THUMBNAIL_SIZE)
+        thumbnail_dir = os.path.dirname(thumbnail_path)
+        os.makedirs(thumbnail_dir, exist_ok=True)
+        image.save(thumbnail_path, format="WEBP", quality=85, method=6)
+
+
 async def ensure_thumbnail(filename: str) -> str:
-    """确保缩略图存在且是最新的，不存在或过期则重新生成"""
+    """确保缩略图存在且是最新的，不存在或过期则重新生成（不阻塞事件循环）"""
     source_path = os.path.join(UPLOAD_FOLDER, filename)
     if not os.path.exists(source_path):
         raise HTTPException(status_code=404, detail="图片文件不存在")
@@ -224,23 +248,9 @@ async def ensure_thumbnail(filename: str) -> str:
     ) >= os.path.getmtime(source_path):
         return thumbnail_path
 
-    # 生成缩略图
+    # 在工作线程中生成缩略图，不阻塞事件循环
     try:
-        async with aiofiles.open(source_path, "rb") as f:
-            image = await f.read()
-            image = PILImage.open(BytesIO(image))
-            image = image.convert("RGB")
-            image.thumbnail(THUMBNAIL_SIZE)
-
-            thumbnail_dir = os.path.dirname(thumbnail_path)
-            os.makedirs(thumbnail_dir, exist_ok=True)
-
-            image.save(
-                thumbnail_path,
-                format="WEBP",
-                quality=85,
-                method=6,
-            )
+        await asyncio.to_thread(_generate_thumbnail_sync, source_path, thumbnail_path)
     except OSError as exc:
         raise HTTPException(status_code=400, detail="无法生成缩略图") from exc
 
@@ -271,8 +281,9 @@ async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
     if not AI_API_KEY or not AI_MODEL or not AI_BASE_URL:
         raise HTTPException(status_code=500, detail="AI 配置不完整")
 
-    # 生成缩略图的 base64
-    data_url = create_thumbnail_base64(content)
+    # 在工作线程中生成缩略图 base64
+    webp_bytes = await async_create_thumbnail_bytes(content)
+    data_url = "data:image/webp;base64," + base64.b64encode(webp_bytes).decode("ascii")
 
     # 构建请求 payload
     payload = {
@@ -378,19 +389,21 @@ async def finalize_upload(
     if len(tags) >= MAX_TAGS:
         raise HTTPException(400, "过多的标签")
 
+    # 并行执行 CPU 密集型操作：哈希计算 + NSFW 检测
+    img_hash, nsfw_result = await asyncio.gather(
+        async_compute_hashes(content),
+        asyncio.to_thread(NsfwDetector().detect, content),
+    )
+
     # 检查图片是否重复（基于感知哈希）
-    img_hash = compute_hash(content)
     duplicate = await Image.check_duplicate(*img_hash)
     if duplicate:
         raise HTTPException(status_code=409, detail=f"疑似重复图片: {duplicate}")
 
-    # 保存文件（以 MD5 哈希命名）
+    # 保存文件（以 SHA1 哈希命名）
     filename = f"{hashlib.sha1(content).hexdigest()}{ext.lower()}"
-
-    # NSFW 检测
-    nsfw_result = NsfwDetector().detect(content)
-
     await save_file(content, filename)
+
     new_image = await Image.create_image(
         filename,
         normalize_tags(tags),

@@ -37,11 +37,11 @@ class Image(Model):
     id = fields.IntField(pk=True)
     filename = fields.CharField(max_length=255)
     tags = fields.JSONField(default=list)
-    created_at = fields.DatetimeField(auto_now_add=True)
+    created_at = fields.DatetimeField(auto_now_add=True, index=True)
     updated_at = fields.DatetimeField(auto_now=True)
     phash = fields.CharField(max_length=64)
-    sha256 = fields.CharField(max_length=64)
-    nsfw = fields.BooleanField(default=False)
+    sha256 = fields.CharField(max_length=64, index=True)
+    nsfw = fields.BooleanField(default=False, index=True)
     nsfw_score = fields.FloatField(default=0.0)
 
     class Meta:  # type: ignore

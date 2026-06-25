@@ -25,11 +25,21 @@ def compute_perceptual_hash(content: bytes) -> imagehash.ImageHash:
     return imagehash.phash(image)
 
 
+def compute_hashes(content: bytes) -> Tuple[str, str]:
+    """一次性计算 SHA256 和感知哈希，只打开图片一次。
+
+    返回 (sha256_hex, phash_hex)。
+    """
+    sha256 = hashlib.sha256(content).hexdigest()
+    with PILImage.open(BytesIO(content)) as image:
+        image = ImageOps.exif_transpose(image)
+        phash = str(imagehash.phash(image))
+    return (sha256, phash)
+
+
 def compute_hash(content: bytes) -> Tuple[str, str]:
-    return (
-        compute_quick_hash(content),
-        str(compute_perceptual_hash(content)),
-    )
+    """兼容旧接口，委托给 compute_hashes。"""
+    return compute_hashes(content)
 
 
 def phash_distance(a: imagehash.ImageHash, b: imagehash.ImageHash) -> int:
@@ -63,9 +73,8 @@ def normalize_tags(tags: list[str]) -> list[str]:
     return normalized
 
 
-def create_thumbnail_base64(content: bytes) -> str:
-    """将图片内容转换为缩略图的 base64 data URL"""
-
+def create_thumbnail_bytes(content: bytes) -> bytes:
+    """将图片内容转换为 WebP 缩略图的原始字节（同步）"""
     with PILImage.open(BytesIO(content)) as img:
         img = img.convert("RGB")
         img.thumbnail(THUMBNAIL_SIZE)
@@ -73,10 +82,23 @@ def create_thumbnail_base64(content: bytes) -> str:
         buffer = BytesIO()
         img.save(buffer, format="WEBP", quality=85, method=6)
         buffer.seek(0)
+        return buffer.getvalue()
 
-        return "data:image/webp;base64," + base64.b64encode(buffer.getvalue()).decode(
-            "ascii"
-        )
+
+def create_thumbnail_base64(content: bytes) -> str:
+    """将图片内容转换为缩略图的 base64 data URL"""
+    webp_bytes = create_thumbnail_bytes(content)
+    return "data:image/webp;base64," + base64.b64encode(webp_bytes).decode("ascii")
+
+
+async def async_compute_hashes(content: bytes) -> Tuple[str, str]:
+    """异步计算 SHA256 和感知哈希（在工作线程中执行）"""
+    return await asyncio.to_thread(compute_hashes, content)
+
+
+async def async_create_thumbnail_bytes(content: bytes) -> bytes:
+    """异步生成 WebP 缩略图字节（在工作线程中执行）"""
+    return await asyncio.to_thread(create_thumbnail_bytes, content)
 
 
 def parse_tags(tags: str) -> list[str]:
