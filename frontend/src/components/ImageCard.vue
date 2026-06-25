@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Image } from '@/api/types'
 import { getImageUrl } from '@/api'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const props = defineProps<{
@@ -12,6 +12,10 @@ const isLoaded = ref(false)
 const isError = ref(false)
 const imageAspectRatio = ref('1 / 1')
 const revealed = ref(false)
+
+const MAX_TAGS = 6
+const displayTags = computed(() => props.image.tags.slice(0, MAX_TAGS))
+const remainingCount = computed(() => Math.max(0, props.image.tags.length - MAX_TAGS))
 
 function onLoaded(event: Event) {
   const target = event.target
@@ -35,28 +39,11 @@ function handleReveal() {
 <template>
   <div class="card" :class="{ 'card--nsfw': image.nsfw }">
     <RouterLink :to="`/image/${image.id}`" class="card__link">
-      <div
-        class="card__image-wrapper"
-        :class="{ 'card__image-wrapper--blurred': image.nsfw && !revealed }"
-        :style="{ aspectRatio: imageAspectRatio }"
-        @click="handleReveal"
-      >
-        <img
-          v-if="!isError"
-          :src="getImageUrl(image.id, true)"
-          :alt="image.tags.join(', ')"
-          class="card__image"
-          :class="{ 'card__image--loaded': isLoaded }"
-          loading="lazy"
-          @load="onLoaded"
-          @error="onError"
-        >
-        <img
-          v-else
-          src="@/assets/images/error.webp"
-          alt="加载失败"
-          class="card__image card__image--loaded"
-        >
+      <div class="card__image-wrapper" :class="{ 'card__image-wrapper--blurred': image.nsfw && !revealed }"
+        :style="{ aspectRatio: imageAspectRatio }" @click="handleReveal">
+        <img v-if="!isError" :src="getImageUrl(image.id, true)" :alt="image.tags.join(', ')" class="card__image"
+          :class="{ 'card__image--loaded': isLoaded }" loading="lazy" @load="onLoaded" @error="onError">
+        <img v-else src="@/assets/images/error.webp" alt="加载失败" class="card__image card__image--loaded">
         <!-- Loading placeholder -->
         <div v-if="!isLoaded && !isError" class="card__placeholder">
           <div class="card__shimmer"></div>
@@ -71,13 +58,12 @@ function handleReveal() {
     </RouterLink>
     <div class="card__body">
       <div class="card__tags">
-        <RouterLink
-          v-for="tag in image.tags"
-          :key="tag"
-          :to="`/search?tag=${encodeURIComponent(tag)}`"
-          class="card__tag"
-        >
+        <RouterLink v-for="tag in displayTags" :key="tag" :to="`/search?tag=${encodeURIComponent(tag)}`"
+          class="card__tag">
           #{{ tag }}
+        </RouterLink>
+        <RouterLink v-if="remainingCount > 0" :to="`/image/${image.id}`" class="card__tag-more">
+          +{{ remainingCount }}
         </RouterLink>
       </div>
     </div>
@@ -155,19 +141,22 @@ function handleReveal() {
   width: 60%;
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(
-    90deg,
-    var(--color-border) 25%,
-    var(--color-surface-hover) 50%,
-    var(--color-border) 75%
-  );
+  background: linear-gradient(90deg,
+      var(--color-border) 25%,
+      var(--color-surface-hover) 50%,
+      var(--color-border) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* NSFW 模糊覆盖层 */
@@ -229,5 +218,26 @@ function handleReveal() {
 .card__tag:hover {
   color: var(--color-accent);
   background-color: var(--color-accent-glow);
+}
+
+.card__tag-more {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-elevated);
+  border: 1px dashed var(--color-border);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.card__tag-more:hover {
+  color: var(--color-accent);
+  background-color: var(--color-accent-glow);
+  border-color: var(--color-accent);
 }
 </style>

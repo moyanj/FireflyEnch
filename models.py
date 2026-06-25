@@ -1,10 +1,23 @@
 import imagehash
+import time
 from tortoise.models import Model
 from tortoise import fields
 from typing import List, Optional, Dict, Any, Tuple
 
 import config
 from utils import compute_perceptual_hash, compute_quick_hash, phash_distance
+
+# ==================== 标签缓存 ====================
+
+# 标签缓存：存储 (tags_list, expire_time)
+_tag_cache: Optional[Tuple[List[str], float]] = None
+TAG_CACHE_TTL = 300  # 缓存 5 分钟
+
+
+def clear_tag_cache() -> None:
+    """清除标签缓存"""
+    global _tag_cache
+    _tag_cache = None
 
 
 class Image(Model):
@@ -91,6 +104,31 @@ class Image(Model):
         return await cls.get_or_none(id=random_id)
 
     @classmethod
+    async def get_all_tags(cls) -> List[str]:
+        """获取图库中去重后的全部标签列表（带缓存）"""
+        global _tag_cache
+
+        # 检查缓存是否有效
+        if _tag_cache is not None:
+            tags, expire_time = _tag_cache
+            if time.time() < expire_time:
+                return tags
+
+        # 缓存失效，重新查询
+        tag_set: set[str] = set()
+
+        for image in await cls.all():
+            if image.tags:
+                tag_set.update(tag for tag in image.tags if tag)
+
+        tags = sorted(tag_set)
+
+        # 更新缓存
+        _tag_cache = (tags, time.time() + TAG_CACHE_TTL)
+
+        return tags
+
+    @classmethod
     async def get_by_tags(
         cls,
         tags: List[str],
@@ -156,7 +194,7 @@ class Image(Model):
         nsfw_score: float = 0.0,
     ) -> "Image":
         """创建新图片记录"""
-        return await cls.create(
+        image = await cls.create(
             filename=filename,
             tags=tags,
             sha256=img_hash[0],
@@ -164,6 +202,8 @@ class Image(Model):
             nsfw=nsfw,
             nsfw_score=nsfw_score,
         )
+        clear_tag_cache()
+        return image
 
     @classmethod
     async def update_tags(cls, image_id: int, tags: List[str]) -> bool:
@@ -172,6 +212,7 @@ class Image(Model):
         if image:
             image.tags = tags
             await image.save()
+            clear_tag_cache()
             return True
         return False
 
@@ -181,6 +222,7 @@ class Image(Model):
         image = await cls.get_or_none(id=image_id)
         if image:
             await image.delete()
+            clear_tag_cache()
             return True
         return False
 

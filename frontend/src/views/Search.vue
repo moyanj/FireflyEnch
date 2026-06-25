@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ImageGallery from '@/components/ImageGallery.vue'
-import { searchByTag } from '@/api'
+import { getAllTags, getRandomImageInfo, searchByTag } from '@/api'
 import type { Image } from '@/api/types'
 
 const route = useRoute()
@@ -14,6 +14,8 @@ const isLoading = ref(false)
 const errorMsg = ref('')
 const hasSearched = ref(false)
 const resultCount = ref(0)
+const randomPending = ref(false)
+const allTags = ref<string[]>([])
 
 type SearchState = 'initial' | 'loading' | 'results' | 'empty' | 'error'
 const searchState = computed<SearchState>(() => {
@@ -24,15 +26,26 @@ const searchState = computed<SearchState>(() => {
   return 'results'
 })
 
+const trimmedQuery = computed(() => searchQuery.value.trim())
+
+const relatedTags = computed(() => {
+  return allTags.value
+    .filter(tag => tag !== trimmedQuery.value)
+    .map(tag => ({ tag, sortKey: Math.random() }))
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .slice(0, 8)
+    .map(item => item.tag)
+})
+
 async function doSearch() {
-  if (!searchQuery.value.trim()) return
+  if (!trimmedQuery.value) return
 
   isLoading.value = true
   errorMsg.value = ''
   hasSearched.value = true
 
   try {
-    const res = await searchByTag(searchQuery.value.trim())
+    const res = await searchByTag(trimmedQuery.value)
     if (res.code !== 200) {
       errorMsg.value = res.message
       images.value = []
@@ -46,8 +59,7 @@ async function doSearch() {
       errorMsg.value = ''
     }
 
-    // 更新 URL query
-    router.replace({ path: '/search', query: { tag: searchQuery.value.trim() } })
+    router.replace({ path: '/search', query: { tag: trimmedQuery.value } })
   } catch {
     errorMsg.value = '搜索失败，请稍后再试'
     images.value = []
@@ -61,7 +73,34 @@ function handleSubmit(e: Event) {
   doSearch()
 }
 
-// 监听路由参数变化
+async function jumpToRandomImage() {
+  randomPending.value = true
+  try {
+    const res = await getRandomImageInfo()
+    if (res.code === 200 && res.data) {
+      await router.push(`/image/${res.data.id}`)
+    }
+  } finally {
+    randomPending.value = false
+  }
+}
+
+function openSuggestedTag(tag: string) {
+  searchQuery.value = tag
+  doSearch()
+}
+
+async function loadAllTags() {
+  try {
+    const res = await getAllTags()
+    if (res.code === 200 && res.data?.tags) {
+      allTags.value = res.data.tags
+    }
+  } catch {
+    allTags.value = []
+  }
+}
+
 watch(() => route.query.tag, (tag) => {
   if (tag && typeof tag === 'string') {
     searchQuery.value = tag
@@ -73,19 +112,28 @@ onMounted(() => {
   if (route.query.tag && typeof route.query.tag === 'string') {
     searchQuery.value = route.query.tag
   }
+  loadAllTags()
 })
 </script>
 
 <template>
   <div class="search">
+    <section class="search__hero">
+      <div class="search__hero-copy">
+        <p class="search__eyebrow">Tag Explorer</p>
+        <h1 class="search__title">溯流而上，掘尽万象。</h1>
+      </div>
+
+      <div class="search__hero-side">
+        <button class="search__random" type="button" :disabled="randomPending" @click="jumpToRandomImage">
+          <span class="search__random-icon">↗</span>
+          <span>{{ randomPending ? '跳转中...' : '随机看看' }}</span>
+        </button>
+      </div>
+    </section>
+
     <form class="search__form" @submit="handleSubmit">
-      <input
-        v-model="searchQuery"
-        type="search"
-        class="search__input"
-        placeholder="搜索标签..."
-        aria-label="搜索标签"
-      >
+      <input v-model="searchQuery" type="search" class="search__input" placeholder="搜索标签..." aria-label="搜索标签">
       <button type="submit" class="search__btn" :disabled="isLoading">
         <span class="search__btn-icon">✦</span>
         <span v-if="!isLoading">搜索</span>
@@ -93,65 +141,148 @@ onMounted(() => {
       </button>
     </form>
 
-    <!-- 初始态 -->
+    <section v-if="searchState === 'results'" class="search__summary">
+      <div class="search__summary-main">
+        <p class="search__summary-label">当前探索</p>
+        <div class="search__summary-row">
+          <span class="search__result-tag">#{{ trimmedQuery }}</span>
+          <span class="search__result-count">找到 {{ resultCount }} 张图片</span>
+        </div>
+      </div>
+
+      <div class="search__summary-meta">
+        <p class="search__summary-label">继续延展</p>
+        <div v-if="relatedTags.length > 0" class="search__related-tags">
+          <button v-for="tag in relatedTags" :key="tag" type="button" class="search__related-tag"
+            @click="openSuggestedTag(tag)">
+            <span>#{{ tag }}</span>
+          </button>
+        </div>
+        <p v-else class="search__summary-empty">当前结果里没有足够多的其他标签，试试换个更宽一点的关键词。</p>
+      </div>
+    </section>
+
     <div v-if="searchState === 'initial'" class="search__state search__state--initial">
       <span class="search__state-icon">✦</span>
       <p>输入标签搜索图片</p>
       <p class="search__state-hint">支持中文标签，如「白发」「双马尾」</p>
     </div>
 
-    <!-- 搜索中 -->
     <div v-if="searchState === 'loading'" class="search__state search__state--loading">
       <div class="search__spinner"></div>
       <span>搜索中...</span>
     </div>
 
-    <!-- 当前搜索标签回显 + 结果数量 -->
-    <div v-if="searchState === 'results'" class="search__result-info">
-      <span class="search__result-tag">#{{ searchQuery }}</span>
-      <span class="search__result-count">找到 {{ resultCount }} 张图片</span>
-    </div>
+    <ImageGallery v-if="searchState === 'results'" :images="images" :loading="false" :has-more="false" />
 
-    <!-- 搜索结果 -->
-    <ImageGallery
-      v-if="searchState === 'results'"
-      :images="images"
-      :loading="false"
-      :has-more="false"
-    />
-
-    <!-- 无结果 -->
     <div v-if="searchState === 'empty'" class="search__state search__state--empty">
       <span class="search__state-icon">∅</span>
       <p>没有找到标签为「{{ searchQuery }}」的图片</p>
+      <p class="search__state-hint">可以尝试更短的标签，或者直接随机看看。</p>
+      <button class="search__retry-btn" type="button" :disabled="randomPending" @click="jumpToRandomImage">
+        {{ randomPending ? '跳转中...' : '换个方向，随机看看' }}
+      </button>
     </div>
 
-    <!-- 请求错误 -->
     <div v-if="searchState === 'error'" class="search__state search__state--error">
       <span class="search__state-icon">!</span>
       <p>{{ errorMsg }}</p>
-      <button class="search__retry-btn" @click="doSearch">重试</button>
+      <button class="search__retry-btn" type="button" @click="doSearch">重试</button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .search {
-  padding: var(--space-sm) 0;
+  padding: var(--space-sm) 0 var(--space-2xl);
+}
+
+.search__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.6fr);
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at top left, rgba(168, 230, 0, 0.18), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02), transparent 55%),
+    var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.search__eyebrow {
+  margin-bottom: var(--space-sm);
+  color: var(--color-accent);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
+
+.search__title {
+  max-width: 16ch;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1.05;
+}
+
+.search__desc {
+  max-width: 56ch;
+  margin-top: var(--space-md);
+  color: var(--color-text-secondary);
+}
+
+.search__hero-side {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.search__random {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 48px;
+  padding: 0 var(--space-lg);
+  border: 1px solid rgba(168, 230, 0, 0.25);
+  border-radius: var(--radius-full);
+  background: rgba(168, 230, 0, 0.08);
+  color: var(--color-accent);
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.search__random:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(168, 230, 0, 0.45);
+  background: rgba(168, 230, 0, 0.14);
+}
+
+.search__random:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.search__random-icon {
+  font-size: 1rem;
 }
 
 .search__form {
   display: flex;
   gap: var(--space-sm);
-  max-width: 500px;
+  max-width: 640px;
   margin-bottom: var(--space-lg);
 }
 
 .search__input {
   flex: 1;
+  min-height: 50px;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
   font-size: 1rem;
@@ -174,11 +305,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  justify-content: center;
+  min-width: 120px;
+  min-height: 50px;
   padding: var(--space-sm) var(--space-lg);
   background-color: var(--color-accent);
   color: var(--color-bg);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: 1rem;
   cursor: pointer;
   transition:
@@ -203,7 +337,82 @@ onMounted(() => {
   font-size: 1.1rem;
 }
 
-/* ── 状态展示 ── */
+.search__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 50%),
+    var(--color-surface);
+}
+
+.search__summary-label {
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.search__summary-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.search__result-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-full);
+  background: rgba(168, 230, 0, 0.12);
+  color: var(--color-accent);
+  font-family: var(--font-display);
+}
+
+.search__result-count {
+  color: var(--color-text-secondary);
+}
+
+.search__related-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.search__related-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.search__related-tag:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.search__summary-empty {
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+}
+
 .search__state {
   display: flex;
   flex-direction: column;
@@ -230,14 +439,22 @@ onMounted(() => {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 .search__state-hint {
-  font-size: 0.85rem;
   color: var(--color-text-muted);
   opacity: 0.7;
+  font-size: 0.85rem;
+  text-align: center;
 }
 
 .search__state--loading {
@@ -256,7 +473,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .search__state--empty {
@@ -277,42 +496,47 @@ onMounted(() => {
 }
 
 .search__retry-btn {
+  min-height: 44px;
   margin-top: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
+  padding: 0 var(--space-lg);
   background: transparent;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 0.85rem;
-  transition: all var(--transition-fast);
+  font-size: 0.9rem;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast);
 }
 
 .search__retry-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
+  background: var(--color-accent-glow);
 }
 
-/* ── 结果信息 ── */
-.search__result-info {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+@media (max-width: 960px) {
+
+  .search__hero,
+  .search__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .search__hero-side {
+    justify-content: flex-start;
+  }
 }
 
-.search__result-tag {
-  display: inline-flex;
-  padding: 4px var(--space-md);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-accent-glow);
-  color: var(--color-accent);
-  font-size: 0.9rem;
-  font-weight: 500;
-}
+@media (max-width: 640px) {
+  .search__form {
+    flex-direction: column;
+    max-width: none;
+  }
 
-.search__result-count {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
+  .search__btn {
+    width: 100%;
+  }
 }
 </style>

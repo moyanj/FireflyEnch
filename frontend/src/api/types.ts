@@ -41,6 +41,11 @@ export interface TagSearchData {
   images: Image[]
 }
 
+/** 全部标签响应 */
+export interface AllTagsData {
+  tags: string[]
+}
+
 /** 上传响应 */
 export interface UploadData {
   id: number

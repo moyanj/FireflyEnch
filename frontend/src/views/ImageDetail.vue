@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { getImageInfo, getImageUrl } from '@/api'
+import { getAllTags, getImageInfo, getImageUrl } from '@/api'
 import type { Image } from '@/api/types'
 
 const route = useRoute()
@@ -11,11 +11,23 @@ const isLoading = ref(false)
 const errorMsg = ref('')
 const revealed = ref(false)
 const linkCopied = ref(false)
+const allTags = ref<string[]>([])
 
 const imageId = computed(() => Number(route.params.id))
 const imageUrl = computed(() => (
   image.value ? getImageUrl(image.value.id) : ''
 ))
+const thumbnailUrl = computed(() => (
+  image.value ? getImageUrl(image.value.id, true) : ''
+))
+const suggestedTags = computed(() => {
+  return allTags.value
+    .filter(tag => !image.value?.tags.includes(tag))
+    .map(tag => ({ tag, sortKey: Math.random() }))
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .slice(0, 6)
+    .map(item => item.tag)
+})
 
 function formatLocalDateTime(value: string | null) {
   if (!value) return '未知'
@@ -60,9 +72,8 @@ async function loadImageDetail() {
 }
 
 async function copyImageLink() {
-  const url = window.location.href
   try {
-    await navigator.clipboard.writeText(url)
+    await navigator.clipboard.writeText(window.location.href)
     linkCopied.value = true
     setTimeout(() => { linkCopied.value = false }, 2000)
   } catch {
@@ -70,9 +81,21 @@ async function copyImageLink() {
   }
 }
 
+async function loadAllTags() {
+  try {
+    const res = await getAllTags()
+    if (res.code === 200 && res.data?.tags) {
+      allTags.value = res.data.tags
+    }
+  } catch {
+    allTags.value = []
+  }
+}
+
 watch(() => route.params.id, loadImageDetail)
 
 onMounted(loadImageDetail)
+onMounted(loadAllTags)
 </script>
 
 <template>
@@ -90,19 +113,16 @@ onMounted(loadImageDetail)
     </div>
 
     <div v-else-if="image" class="detail__layout">
-<section class="detail__viewer">
-          <div
-            class="detail__image-wrapper"
-            :class="{ 'detail__image-wrapper--blurred': image.nsfw && !revealed }"
-            @click="revealed = image.nsfw"
-          >
-            <img :src="imageUrl" :alt="image.tags.join(', ')" class="detail__image">
-            <div v-if="image.nsfw && !revealed" class="detail__nsfw-overlay">
-              <span class="detail__nsfw-badge">R18</span>
-              <span class="detail__nsfw-hint">点击显示图片内容</span>
-            </div>
+      <section class="detail__viewer">
+        <div class="detail__image-wrapper" :class="{ 'detail__image-wrapper--blurred': image.nsfw && !revealed }"
+          @click="revealed = image.nsfw">
+          <img :src="thumbnailUrl" :alt="image.tags.join(', ')" class="detail__image">
+          <div v-if="image.nsfw && !revealed" class="detail__nsfw-overlay">
+            <span class="detail__nsfw-badge">R18</span>
+            <span class="detail__nsfw-hint">点击显示图片内容</span>
           </div>
-        </section>
+        </div>
+      </section>
 
       <aside class="detail__panel">
         <div class="detail__card">
@@ -113,12 +133,18 @@ onMounted(loadImageDetail)
         <div class="detail__card">
           <h2 class="detail__section-title">标签</h2>
           <div class="detail__tags">
-            <RouterLink
-              v-for="tag in image.tags"
-              :key="tag"
-              :to="`/search?tag=${encodeURIComponent(tag)}`"
-              class="detail__tag"
-            >
+            <RouterLink v-for="tag in image.tags" :key="tag" :to="`/search?tag=${encodeURIComponent(tag)}`"
+              class="detail__tag">
+              #{{ tag }}
+            </RouterLink>
+          </div>
+        </div>
+
+        <div v-if="suggestedTags.length > 0" class="detail__card">
+          <h2 class="detail__section-title">继续探索</h2>
+          <div class="detail__explore">
+            <RouterLink v-for="tag in suggestedTags" :key="tag" :to="`/search?tag=${encodeURIComponent(tag)}`"
+              class="detail__explore-tag">
               #{{ tag }}
             </RouterLink>
           </div>
@@ -151,14 +177,15 @@ onMounted(loadImageDetail)
         </div>
 
         <div class="detail__actions">
-          <a :href="imageUrl" target="_blank" rel="noopener noreferrer" class="detail__action detail__action--primary">
-            打开原图
+          <a :href="thumbnailUrl" target="_blank" rel="noopener noreferrer"
+            class="detail__action detail__action--primary">
+            打开预览图
           </a>
           <a :href="imageUrl" download class="detail__action detail__action--secondary">
             下载图片
           </a>
           <button class="detail__action detail__action--secondary" @click="copyImageLink">
-            复制链接
+            {{ linkCopied ? '已复制链接' : '复制链接' }}
           </button>
         </div>
       </aside>
@@ -236,7 +263,6 @@ onMounted(loadImageDetail)
   pointer-events: none;
 }
 
-/* NSFW 覆盖层 */
 .detail__nsfw-overlay {
   position: absolute;
   inset: 0;
@@ -273,8 +299,15 @@ onMounted(loadImageDetail)
 }
 
 @keyframes pulse-hint {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 .detail__panel {
@@ -287,7 +320,9 @@ onMounted(loadImageDetail)
   padding: var(--space-lg);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 60%),
+    var(--color-surface);
 }
 
 .detail__eyebrow {
@@ -309,26 +344,39 @@ onMounted(loadImageDetail)
   color: var(--color-text);
 }
 
-.detail__tags {
+.detail__tags,
+.detail__explore {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
-.detail__tag {
-  padding: 0.35rem 0.65rem;
+.detail__tag,
+.detail__explore-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
   border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
   background-color: var(--color-bg);
   color: var(--color-text-secondary);
   text-decoration: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
   transition:
     color var(--transition-fast),
-    background-color var(--transition-fast);
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
-.detail__tag:hover {
+.detail__tag:hover,
+.detail__explore-tag:hover {
   color: var(--color-accent);
+  border-color: var(--color-accent);
   background-color: var(--color-accent-glow);
+  transform: translateY(-1px);
 }
 
 .detail__meta {

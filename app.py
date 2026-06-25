@@ -64,7 +64,7 @@ from config import (
 from nsfw_detector import NsfwDetector
 
 # 导入数据模型和工具函数
-from models import Image
+from models import Image, clear_tag_cache
 from utils import (
     build_public_image_url,
     cleanup_expired_prepared_uploads,
@@ -86,6 +86,7 @@ login_tokens: Dict[str, float] = {}
 
 class UpdateTagsBody(BaseModel):
     """更新标签请求体"""
+
     tags: list[str] = []
 
 
@@ -160,7 +161,7 @@ def generate_captcha_code(length: int = CAPTCHA_LENGTH) -> str:
 
 def generate_captcha_image(code: str) -> bytes:
     """使用 captcha 库生成验证码图片"""
-    image_captcha = ImageCaptcha(width=120, height=40)
+    image_captcha = ImageCaptcha(width=140, height=60)
     return image_captcha.generate(code).getvalue()
 
 
@@ -343,6 +344,8 @@ async def finalize_upload(
     base, ext = os.path.splitext(original_filename)
     if not ext:
         ext = ".png"
+    if len(tags) >= 25:
+        raise HTTPException(400, "过多的标签")
 
     # 检查图片是否重复（基于感知哈希）
     img_hash = compute_hash(content)
@@ -556,28 +559,36 @@ async def get_images(
     page_size: int = Query(20, ge=1, le=100),
     tag: Optional[str] = Query(None, description="标签列表，逗号分隔"),
     id: Optional[int] = Query(None, description="精确 ID 查找"),
-    nsfw: Optional[bool] = Query(None, description="NSFW 过滤: true=仅NSFW, false=仅SFW"),
-    sort: str = Query("id_desc", description="排序: id_desc, id_asc, created_at_desc, created_at_asc"),
+    nsfw: Optional[bool] = Query(
+        None, description="NSFW 过滤: true=仅NSFW, false=仅SFW"
+    ),
+    sort: str = Query(
+        "id_desc", description="排序: id_desc, id_asc, created_at_desc, created_at_asc"
+    ),
 ) -> JSONResponse:
     """获取图片列表（支持标签筛选、ID查找、NSFW过滤、排序和分页）"""
     # 精确 ID 查找
     if id is not None:
         image = await Image.get_by_id(id)
         if image:
-            return jsonify({
-                "total": 1,
+            return jsonify(
+                {
+                    "total": 1,
+                    "page": 1,
+                    "page_size": 1,
+                    "images": [image.to_dict()],
+                    "last": True,
+                }
+            )
+        return jsonify(
+            {
+                "total": 0,
                 "page": 1,
                 "page_size": 1,
-                "images": [image.to_dict()],
+                "images": [],
                 "last": True,
-            })
-        return jsonify({
-            "total": 0,
-            "page": 1,
-            "page_size": 1,
-            "images": [],
-            "last": True,
-        })
+            }
+        )
 
     # 按标签筛选（含分页）
     if tag:
@@ -597,6 +608,13 @@ async def random_image():
     if not image:
         raise HTTPException(status_code=404, detail="没有图片")
     return jsonify(image.to_dict())
+
+
+@app.get("/api/tags")
+async def get_tags():
+    """获取图库中的全部标签列表"""
+    tags = await Image.get_all_tags()
+    return jsonify({"tags": tags})
 
 
 @app.get("/api/images/{image_id}")
@@ -682,8 +700,9 @@ async def update_image_tags(
 
 @app.delete("/api/cache")
 async def clear_cache(_: bool = Depends(verify_appkey)) -> JSONResponse:
-    """清除缓存（预留接口）"""
-    return jsonify()
+    """清除缓存"""
+    clear_tag_cache()
+    return jsonify(None, "缓存已清除")
 
 
 # ==================== 静态文件（放在最后） ====================

@@ -28,7 +28,7 @@ onMounted(() => {
         {{ appVersion }}
       </p>
 
-      <p class="about__slogan">点亮你的幻想，每次闪烁新发现。</p>
+      <p class="about__slogan">星火初燃，千影随行</p>
 
       <div class="about__links">
         <a href="/docs" class="about__link">API 文档</a>

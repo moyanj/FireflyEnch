@@ -2,6 +2,7 @@ import type {
   ApiResponse,
   ImagesListData,
   TagSearchData,
+  AllTagsData,
   UploadData,
   Image,
   LoginData,
@@ -104,6 +105,11 @@ export async function getRandomImageInfo(): Promise<ApiResponse<Image>> {
 /** 标签搜索 */
 export async function searchByTag(tag: string): Promise<ApiResponse<TagSearchData>> {
   return request<TagSearchData>(`/images?tag=${encodeURIComponent(tag)}`)
+}
+
+/** 获取全部标签 */
+export async function getAllTags(): Promise<ApiResponse<AllTagsData>> {
+  return request<AllTagsData>('/tags')
 }
 
 /** 上传图片 */
