@@ -91,6 +91,7 @@ class UpdateTagsBody(BaseModel):
     """更新标签请求体"""
 
     tags: list[str] = []
+    nsfw: Optional[bool] = None
 
 
 class PreparedUpload(TypedDict):
@@ -640,6 +641,65 @@ async def random_image():
     return jsonify(image.to_dict())
 
 
+@app.get("/api/images/random/image")
+async def random_image_file(request: Request):
+    """获取随机一张图片的原图文件"""
+    image = await Image.get_random()
+    if not image:
+        raise HTTPException(status_code=404, detail="没有图片")
+
+    filepath = os.path.join(UPLOAD_FOLDER, image.filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+    return FileResponse(filepath)
+
+
+@app.get("/api/images/random/thumbnail")
+async def random_image_thumbnail(request: Request):
+    """获取随机一张图片的缩略图（WebP 格式）"""
+    image = await Image.get_random()
+    if not image:
+        raise HTTPException(status_code=404, detail="没有图片")
+    if not await is_image_file(image.filename):
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+
+    thumbnail_path = await ensure_thumbnail(image.filename)
+    return FileResponse(thumbnail_path, media_type="image/webp")
+
+
+@app.post("/api/images/similar")
+async def find_similar_images(
+    phash: str = Form(..., description="感知哈希值（十六进制字符串）"),
+    threshold: int = Form(10, description="汉明距离阈值，越小越严格（1-64）"),
+    limit: int = Form(20, description="返回结果数量限制"),
+) -> JSONResponse:
+    """根据感知哈希查找相似图片
+
+    用户提交感知哈希值，服务器返回相似的图片列表。
+    感知哈希基于图片内容计算，相似图片的哈希值汉明距离较小。
+    """
+    if not phash or len(phash) != 16:
+        raise HTTPException(
+            status_code=400, detail="感知哈希格式错误，应为16位十六进制字符串"
+        )
+
+    if threshold < 1 or threshold > 64:
+        raise HTTPException(status_code=400, detail="阈值范围应在1-64之间")
+
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="结果数量限制应在1-100之间")
+
+    similar_images = await Image.find_similar_images(phash, threshold, limit)
+    return jsonify(
+        {
+            "phash": phash,
+            "threshold": threshold,
+            "count": len(similar_images),
+            "images": similar_images,
+        }
+    )
+
+
 @app.get("/api/tags")
 async def get_tags():
     """获取图库中的全部标签列表"""
@@ -709,23 +769,37 @@ async def delete_image(
 
 
 @app.patch("/api/images/{image_id}")
-async def update_image_tags(
+async def update_image(
     image_id: int,
     tags: str = Query("", description="新标签列表，逗号分隔(兼容旧版)"),
     body: Optional[UpdateTagsBody] = None,
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
-    """更新图片标签（支持 JSON body 和 query param 两种方式）"""
-    # 优先使用 JSON body
+    """更新图片标签和NSFW状态（支持 JSON body 和 query param 两种方式）"""
+    image = await Image.get_by_id(image_id)
+    if not image:
+        raise HTTPException(status_code=404, detail="图片未找到")
+
+    # 更新标签
     if body and body.tags:
         parsed_tags = normalize_tags(body.tags)
-    else:
+    elif tags:
         parsed_tags = parse_tags(tags)
+    else:
+        parsed_tags = None
 
-    success = await Image.update_tags(image_id, parsed_tags)
-    if success:
-        return jsonify(msg="完成")
-    raise HTTPException(status_code=404, detail="图片未找到")
+    if parsed_tags is not None:
+        image.tags = parsed_tags
+
+    # 更新 NSFW 状态
+    if body and body.nsfw is not None:
+        image.nsfw = body.nsfw
+
+    await image.save()
+    if parsed_tags is not None:
+        clear_tag_cache()
+
+    return jsonify(msg="完成")
 
 
 @app.delete("/api/cache")

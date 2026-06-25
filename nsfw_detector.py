@@ -83,7 +83,7 @@ class NsfwDetector:
 
         # 推理
         outputs = self._session.run(None, {self._input_name: img_array})
-        probs = outputs[0][0]  # shape: (5,)
+        probs = outputs[0][0]  # type: ignore shape: (5,)
 
         # 构建概率字典
         prob_dict = {_CLASSES[i]: float(probs[i]) for i in range(len(_CLASSES))}

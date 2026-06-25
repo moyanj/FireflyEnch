@@ -177,17 +177,20 @@ export async function deleteImage(
   }))
 }
 
-/** 更新图片标签（JSON body 方式） */
-export async function updateTags(
+/** 更新图片标签和NSFW状态（JSON body 方式） */
+export async function updateImage(
   id: number,
-  tags: string[]
+  data: { tags?: string[]; nsfw?: boolean }
 ): Promise<ApiResponse<null>> {
   return request<null>(`/images/${id}`, withAdminAuth({
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tags }),
+    body: JSON.stringify(data),
   }))
 }
+
+/** @deprecated 使用 updateImage 替代 */
+export const updateTags = (id: number, tags: string[]) => updateImage(id, { tags })
 
 /** 清除缓存 */
 export async function clearCache(): Promise<ApiResponse<null>> {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { getAdminImages, deleteImage, getImageUrl, updateTags } from '@/api'
+import { getAdminImages, deleteImage, getImageUrl, updateImage } from '@/api'
 import { clearAdminToken } from '@/auth'
 import type { Image } from '@/api/types'
 
@@ -23,7 +23,8 @@ const errorMsg = ref('')
 const drawerOpen = ref(false)
 const drawerImage = ref<Image | null>(null)
 const editTags = ref('')
-const isSavingTags = ref(false)
+const editNsfw = ref(false)
+const isSaving = ref(false)
 const saveMsg = ref('')
 
 // ── 删除确认 ──
@@ -91,6 +92,7 @@ function goToPage(page: number) {
 function openDrawer(image: Image) {
   drawerImage.value = { ...image }
   editTags.value = image.tags.join(', ')
+  editNsfw.value = image.nsfw
   drawerOpen.value = true
   saveMsg.value = ''
 }
@@ -100,32 +102,45 @@ function closeDrawer() {
   drawerImage.value = null
 }
 
-async function saveTags() {
+async function saveImage() {
   if (!drawerImage.value) return
-  isSavingTags.value = true
+  isSaving.value = true
   saveMsg.value = ''
 
   try {
     const newTags = editTags.value.split(',').map(t => t.trim()).filter(Boolean)
-    const res = await updateTags(drawerImage.value.id, newTags)
+    const nsfwChanged = editNsfw.value !== drawerImage.value.nsfw
+    const tagsChanged = JSON.stringify(newTags) !== JSON.stringify(drawerImage.value.tags)
+
+    if (!nsfwChanged && !tagsChanged) {
+      saveMsg.value = '无变更'
+      return
+    }
+
+    const res = await updateImage(drawerImage.value.id, {
+      ...(tagsChanged ? { tags: newTags } : {}),
+      ...(nsfwChanged ? { nsfw: editNsfw.value } : {}),
+    })
+
     if (res.code === 401) {
       clearAdminToken()
       saveMsg.value = '登录已失效'
     } else {
-      saveMsg.value = '标签已更新'
+      saveMsg.value = '已保存'
       if (drawerImage.value) {
         drawerImage.value.tags = newTags
+        drawerImage.value.nsfw = editNsfw.value
       }
       // 同步更新列表
       const idx = images.value.findIndex(img => img.id === drawerImage.value?.id)
       if (idx !== -1) {
-        images.value[idx] = { ...images.value[idx], tags: newTags }
+        images.value[idx] = { ...images.value[idx], tags: newTags, nsfw: editNsfw.value }
       }
     }
   } catch {
     saveMsg.value = '更新失败'
   } finally {
-    isSavingTags.value = false
+    isSaving.value = false
   }
 }
 
@@ -339,10 +354,18 @@ watch([nsfwFilter, sortBy], () => {
               <span>{{ formatTime(drawerImage.created_at) }}</span>
             </div>
             <div class="bi-drawer__meta-row">
-              <span>NSFW</span>
-              <span class="bi-nsfw-badge" :class="{ 'bi-nsfw-badge--active': drawerImage.nsfw }">
-                {{ drawerImage.nsfw ? 'R18' : 'SFW' }}
-              </span>
+              <span>NSFW 状态</span>
+              <label class="bi-toggle">
+                <input v-model="editNsfw" type="checkbox" class="bi-toggle__input">
+                <span class="bi-toggle__slider"></span>
+                <span class="bi-toggle__label" :class="{ 'bi-toggle__label--nsfw': editNsfw }">
+                  {{ editNsfw ? 'R18' : 'SFW' }}
+                </span>
+              </label>
+            </div>
+            <div v-if="drawerImage.nsfw_score > 0" class="bi-drawer__meta-row">
+              <span>NSFW 评分</span>
+              <span>{{ (drawerImage.nsfw_score * 100).toFixed(1) }}%</span>
             </div>
           </div>
 
@@ -351,8 +374,8 @@ watch([nsfwFilter, sortBy], () => {
             <label class="bi-label">标签（逗号分隔）</label>
             <textarea v-model="editTags" class="bi-textarea" rows="3" placeholder="输入标签，用逗号分隔"></textarea>
             <div class="bi-drawer__tags-actions">
-              <button class="bi-btn bi-btn--primary bi-btn--compact" :disabled="isSavingTags" @click="saveTags">
-                {{ isSavingTags ? '保存中...' : '保存修改' }}
+              <button class="bi-btn bi-btn--primary bi-btn--compact" :disabled="isSaving" @click="saveImage">
+                {{ isSaving ? '保存中...' : '保存修改' }}
               </button>
               <span v-if="saveMsg" class="bi-drawer__save-msg">{{ saveMsg }}</span>
             </div>
@@ -796,6 +819,58 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-drawer__meta-row > :first-child {
   color: var(--terminal-text-dim);
+}
+
+/* ── Toggle 开关 ── */
+.bi-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.bi-toggle__input {
+  display: none;
+}
+
+.bi-toggle__slider {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background-color: var(--terminal-border);
+  border-radius: 11px;
+  transition: background-color var(--transition-fast);
+}
+
+.bi-toggle__slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--terminal-text-bright);
+  border-radius: 50%;
+  transition: transform var(--transition-fast);
+}
+
+.bi-toggle__input:checked + .bi-toggle__slider {
+  background-color: var(--terminal-danger);
+}
+
+.bi-toggle__input:checked + .bi-toggle__slider::after {
+  transform: translateX(18px);
+}
+
+.bi-toggle__label {
+  font-size: 0.78rem;
+  font-family: var(--font-display);
+  color: var(--terminal-text-dim);
+  min-width: 28px;
+}
+
+.bi-toggle__label--nsfw {
+  color: var(--terminal-danger);
 }
 
 .bi-drawer__tags-section {

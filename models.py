@@ -273,3 +273,57 @@ class Image(Model):
                 ):
                     return True
         return False
+
+    @classmethod
+    async def find_similar_images(
+        cls, phash: str, threshold: int = 10, limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """根据感知哈希查找相似图片
+
+        Args:
+            phash: 用户提交的感知哈希值（十六进制字符串）
+            threshold: 汉明距离阈值，越小越严格（默认10）
+            limit: 返回结果数量限制（默认20）
+
+        Returns:
+            相似图片列表，包含图片信息和相似度距离
+        """
+        try:
+            target_hash = imagehash.hex_to_hash(phash)
+        except ValueError:
+            return []
+
+        # 获取所有图片的phash
+        all_images = await cls.all().values(
+            "id", "phash", "filename", "tags", "nsfw", "created_at"
+        )
+
+        similar_images = []
+        for img_data in all_images:
+            img_phash = img_data.get("phash")
+            if not img_phash:
+                continue
+            try:
+                img_hash = imagehash.hex_to_hash(img_phash)
+                distance = phash_distance(target_hash, img_hash)
+                if distance <= threshold:
+                    similar_images.append(
+                        {
+                            "id": img_data["id"],
+                            "filename": img_data["filename"],
+                            "tags": img_data["tags"],
+                            "nsfw": img_data["nsfw"],
+                            "created_at": (
+                                img_data["created_at"].isoformat()
+                                if img_data["created_at"]
+                                else None
+                            ),
+                            "distance": distance,
+                        }
+                    )
+            except ValueError:
+                continue
+
+        # 按距离排序（越小越相似），然后限制数量
+        similar_images.sort(key=lambda x: x["distance"])
+        return similar_images[:limit]
