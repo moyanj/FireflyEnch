@@ -216,6 +216,11 @@ onUnmounted(() => {
 @media (max-width: 640px) {
   .navbar__toggle {
     display: block;
+    margin-left: auto;
+  }
+
+  .navbar__actions {
+    display: none;
   }
 
   .navbar__links {
