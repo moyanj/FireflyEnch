@@ -1,11 +1,21 @@
 import imagehash
 import time
 from tortoise.models import Model
-from tortoise import fields
+from tortoise import fields, connections
 from typing import List, Optional, Dict, Any, Tuple
 
 import config
 from utils import compute_perceptual_hash, compute_quick_hash, phash_distance
+
+
+def _is_json_filter_supported() -> bool:
+    """检查当前数据库是否支持 JSON 字段过滤（PostgreSQL/MySQL）"""
+    try:
+        conn = connections.get("default")
+        # 检查 capabilities 中的 support_json_attributes
+        return getattr(conn.capabilities, "support_json_attributes", False)
+    except Exception:
+        return False
 
 # ==================== 标签缓存 ====================
 
@@ -147,40 +157,52 @@ class Image(Model):
                 "last": True,
             }
 
-        # SQLite 的 JSONField __contains 不可用，使用 Python 端过滤
-        queryset = cls.all()
-        if nsfw is not None:
-            queryset = queryset.filter(nsfw=nsfw)
+        # 根据数据库类型选择过滤策略
+        if _is_json_filter_supported():
+            # PostgreSQL/MySQL：使用 ORM 原生的 __contains 在数据库端过滤
+            queryset = cls.filter(tags__contains=tags)
+            if nsfw is not None:
+                queryset = queryset.filter(nsfw=nsfw)
 
-        all_images = await queryset
-        matched = []
-        for image in all_images:
-            if image.tags and any(tag in image.tags for tag in tags):
-                matched.append(image)
+            total = await queryset.count()
+            order_field = cls._resolve_sort(sort)
+            offset = (page - 1) * page_size
+            images = await queryset.order_by(order_field).offset(offset).limit(page_size)
+        else:
+            # SQLite：回退到 Python 端过滤
+            queryset = cls.all()
+            if nsfw is not None:
+                queryset = queryset.filter(nsfw=nsfw)
 
-        # 排序
-        order_field = cls._resolve_sort(sort)
-        reverse = order_field.startswith("-")
-        field_name = order_field.lstrip("-")
+            all_images = await queryset
+            matched = []
+            for image in all_images:
+                if image.tags and any(tag in image.tags for tag in tags):
+                    matched.append(image)
 
-        def sort_key(img: "Image"):
-            val = getattr(img, field_name, None)
-            if val is None:
-                return (1, "")  # null 排到最后
-            return (0, val)
+            # 排序
+            order_field = cls._resolve_sort(sort)
+            reverse = order_field.startswith("-")
+            field_name = order_field.lstrip("-")
 
-        matched.sort(key=sort_key, reverse=reverse)
+            def sort_key(img: "Image"):
+                val = getattr(img, field_name, None)
+                if val is None:
+                    return (1, "")  # null 排到最后
+                return (0, val)
 
-        # 分页
-        total = len(matched)
-        offset = (page - 1) * page_size
-        page_images = matched[offset : offset + page_size]
+            matched.sort(key=sort_key, reverse=reverse)
+
+            # 分页
+            total = len(matched)
+            offset = (page - 1) * page_size
+            images = matched[offset : offset + page_size]
 
         return {
             "total": total,
             "page": page,
             "page_size": page_size,
-            "images": [img.to_dict() for img in page_images],
+            "images": [img.to_dict() for img in images],
             "last": offset + page_size >= total,
         }
 
