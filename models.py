@@ -17,6 +17,7 @@ def _is_json_filter_supported() -> bool:
     except Exception:
         return False
 
+
 # ==================== 标签缓存 ====================
 
 # 标签缓存：存储 (tags_list, expire_time)
@@ -167,7 +168,9 @@ class Image(Model):
             total = await queryset.count()
             order_field = cls._resolve_sort(sort)
             offset = (page - 1) * page_size
-            images = await queryset.order_by(order_field).offset(offset).limit(page_size)
+            images = (
+                await queryset.order_by(order_field).offset(offset).limit(page_size)
+            )
         else:
             # SQLite：回退到 Python 端过滤
             queryset = cls.all()
@@ -261,9 +264,9 @@ class Image(Model):
         if image:
             return True
         perceptual_hash = imagehash.hex_to_hash(phash)
-        for img in await cls.all():
-            if img.phash:
-                b = imagehash.hex_to_hash(img.phash)
+        for phash in await cls.all().values_list("phash", flat=True):  # type: ignore
+            if phash:
+                b = imagehash.hex_to_hash(phash)
                 if (
                     phash_distance(perceptual_hash, b)
                     <= config.PHASH_DUPLICATE_THRESHOLD
