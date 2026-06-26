@@ -8,19 +8,28 @@ const props = defineProps<{
   image: Image
 }>()
 
+const emit = defineEmits<{
+  aspectRatio: [payload: { id: number; aspectRatio: number }]
+}>()
+
 const isLoaded = ref(false)
 const isError = ref(false)
-const imageAspectRatio = ref('1 / 1')
+const imageAspectRatio = ref(1)
 const revealed = ref(false)
 
 const MAX_TAGS = 6
 const displayTags = computed(() => props.image.tags.slice(0, MAX_TAGS))
 const remainingCount = computed(() => Math.max(0, props.image.tags.length - MAX_TAGS))
+const imageAspectRatioStyle = computed(() => String(imageAspectRatio.value))
 
 function onLoaded(event: Event) {
   const target = event.target
   if (target instanceof HTMLImageElement && target.naturalWidth && target.naturalHeight) {
-    imageAspectRatio.value = `${target.naturalWidth} / ${target.naturalHeight}`
+    imageAspectRatio.value = target.naturalWidth / target.naturalHeight
+    emit('aspectRatio', {
+      id: props.image.id,
+      aspectRatio: imageAspectRatio.value,
+    })
   }
   isLoaded.value = true
 }
@@ -40,7 +49,7 @@ function handleReveal() {
   <div class="card" :class="{ 'card--nsfw': image.nsfw }">
     <RouterLink :to="`/image/${image.id}`" class="card__link">
       <div class="card__image-wrapper" :class="{ 'card__image-wrapper--blurred': image.nsfw && !revealed }"
-        :style="{ aspectRatio: imageAspectRatio }" @click="handleReveal">
+        :style="{ aspectRatio: imageAspectRatioStyle }" @click="handleReveal">
         <img v-if="!isError" :src="getImageUrl(image.id, true)" :alt="image.tags.join(', ')" class="card__image"
           :class="{ 'card__image--loaded': isLoaded }" loading="lazy" @load="onLoaded" @error="onError">
         <img v-else src="@/assets/images/error.webp" alt="加载失败" class="card__image card__image--loaded">
@@ -105,6 +114,7 @@ function handleReveal() {
   position: relative;
   width: 100%;
   min-height: 144px;
+  max-height: min(72vh, 560px);
   background-color: var(--color-bg-elevated);
   overflow: hidden;
 }

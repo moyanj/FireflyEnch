@@ -15,8 +15,14 @@ defineEmits<{
 
 const galleryRef = ref<HTMLElement | null>(null)
 const columnCount = ref(1)
+const imageAspectRatios = ref<Record<number, number>>({})
 
 let resizeObserver: ResizeObserver | null = null
+
+const DEFAULT_ASPECT_RATIO = 1
+const MIN_ASPECT_RATIO = 0.35
+const MAX_ASPECT_RATIO = 2.4
+const CARD_META_HEIGHT = 0.34
 
 function getMinColumnWidth(width: number): number {
   if (width <= 480) return width
@@ -34,11 +40,42 @@ function updateColumnCount(width: number) {
   columnCount.value = nextCount
 }
 
+function clampAspectRatio(value: number): number {
+  return Math.min(Math.max(value, MIN_ASPECT_RATIO), MAX_ASPECT_RATIO)
+}
+
+function estimateCardHeight(image: Image): number {
+  const aspectRatio = clampAspectRatio(imageAspectRatios.value[image.id] ?? DEFAULT_ASPECT_RATIO)
+  return (1 / aspectRatio) + CARD_META_HEIGHT
+}
+
+function updateImageAspectRatio(payload: { id: number; aspectRatio: number }) {
+  const nextAspectRatio = clampAspectRatio(payload.aspectRatio)
+  if (imageAspectRatios.value[payload.id] === nextAspectRatio) {
+    return
+  }
+
+  imageAspectRatios.value = {
+    ...imageAspectRatios.value,
+    [payload.id]: nextAspectRatio,
+  }
+}
+
 const imageColumns = computed(() => {
   const columns = Array.from({ length: columnCount.value }, () => [] as Image[])
+  const columnHeights = Array.from({ length: columnCount.value }, () => 0)
 
-  props.images.forEach((image, index) => {
-    columns[index % columnCount.value].push(image)
+  props.images.forEach((image) => {
+    let targetColumn = 0
+
+    for (let index = 1; index < columnHeights.length; index += 1) {
+      if (columnHeights[index] < columnHeights[targetColumn]) {
+        targetColumn = index
+      }
+    }
+
+    columns[targetColumn].push(image)
+    columnHeights[targetColumn] += estimateCardHeight(image)
   })
 
   return columns
@@ -81,7 +118,7 @@ onBeforeUnmount(() => {
           class="gallery__item"
           :style="{ animationDelay: `${Math.min((columnIndex + index) % 20, 10) * 50}ms` }"
         >
-          <ImageCard :image="image" />
+          <ImageCard :image="image" @aspect-ratio="updateImageAspectRatio" />
         </div>
       </div>
     </div>
