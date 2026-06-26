@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { isAdminLoggedIn } from '@/auth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -49,6 +50,13 @@ const router = createRouter({
       component: () => import('@/views/About.vue'),
     },
   ],
+})
+
+// 后台子页面路由守卫：未登录时重定向到 /backend（显示登录表单）
+router.beforeEach((to) => {
+  if (to.path.startsWith('/backend') && to.path !== '/backend' && !isAdminLoggedIn()) {
+    return '/backend'
+  }
 })
 
 export default router

@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { suggestImageTags, uploadImage } from '@/api'
-import { clearAdminToken } from '@/auth'
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 const tags = ref('')
 const previewUrl = ref('')
+
+// 注入父层的强制登出函数
+const forceLogout = inject<() => Promise<void>>('forceLogout')
 
 // ── 上传状态 ──
 const uploadSuccess = ref(false)
@@ -135,8 +137,8 @@ async function handleSuggestTags() {
       suggestedTags.value = createSuggestedTagItems(res.data.suggested_tags)
       suggestStatus.value = res.data.suggested_tags.length === 0 ? 'empty' : 'done'
     } else if (res.code === 401) {
-      clearAdminToken()
-      suggestError.value = '登录已失效'
+      if (forceLogout) await forceLogout()
+      suggestError.value = '登录已失效，请重新登录'
       suggestStatus.value = 'error'
     } else {
       suggestError.value = res.message
@@ -168,8 +170,8 @@ async function handleUpload() {
       suggestStatus.value = 'idle'
       suggestedTags.value = []
     } else if (res.code === 401) {
-      clearAdminToken()
-      uploadError.value = '登录已失效'
+      if (forceLogout) await forceLogout()
+      uploadError.value = '登录已失效，请重新登录'
     } else {
       uploadError.value = res.message
     }
@@ -238,6 +240,10 @@ async function handleUpload() {
             <div v-else-if="suggestStatus === 'loading'" class="bu-ai-status__loading">
               <div class="bu-spinner"></div>
               <span>AI 正在分析图片...</span>
+            </div>
+            <div v-else-if="suggestStatus === 'done'" class="bu-ai-status__done">
+              AI 标签已生成
+              <button class="bu-btn bu-btn--ghost bu-btn--compact" @click="handleSuggestTags">重新生成</button>
             </div>
             <div v-else-if="suggestStatus === 'empty'" class="bu-ai-status__empty">
               没有可用的 AI 建议标签
@@ -478,7 +484,8 @@ async function handleUpload() {
 }
 
 .bu-ai-status__empty,
-.bu-ai-status__error {
+.bu-ai-status__error,
+.bu-ai-status__done {
   display: flex;
   align-items: center;
   gap: var(--space-sm);

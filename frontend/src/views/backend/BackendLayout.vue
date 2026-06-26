@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, provide, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { getCaptcha, login } from '@/api'
 import { clearAdminToken, getAdminToken, isAdminLoggedIn, setAdminToken } from '@/auth'
@@ -16,6 +16,10 @@ const captchaUrl = ref('')
 const loginError = ref('')
 const loginMessage = ref('')
 const isLoggingIn = ref(false)
+
+// 向子组件提供登录状态，用于 401 时通知父层登出
+provide('isAuthed', isAuthed)
+provide('forceLogout', forceLogout)
 
 // ── 侧边栏 ──
 const isMobileDrawerOpen = ref(false)
@@ -44,6 +48,12 @@ function setLoggedOut() {
   captchaUrl.value = ''
   loginError.value = ''
   loginMessage.value = ''
+}
+
+// 子组件 401 时调用此函数强制登出
+async function forceLogout() {
+  setLoggedOut()
+  await refreshCaptcha()
 }
 
 async function refreshCaptcha() {
@@ -89,6 +99,7 @@ async function handleLogin() {
 
 function handleLogout() {
   setLoggedOut()
+  refreshCaptcha()
   router.replace('/backend')
 }
 

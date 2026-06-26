@@ -391,6 +391,7 @@ async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
     # 解析响应，提取标签
     body = response.json()
     content_text = body.get("choices", [{}])[0].get("message", {}).get("content", "")
+    logger.debug("AI 原始响应内容：{}", content_text)
     tags = extract_ai_tags(content_text)[:AI_MAX_TAGS]
     logger.info("AI 标签生成完成 filename={} tag_count={}", filename, len(tags))
     return tags

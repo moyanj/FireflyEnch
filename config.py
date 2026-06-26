@@ -54,7 +54,7 @@ def env_size(name: str, default: tuple[int, int]) -> tuple[int, int]:
 APP_NAME = env_str("APP_NAME", "FireflyEnch")
 APP_PORT = env_int("APP_PORT", 8896)
 MAX_TAGS = env_int("MAX_TAGS", 25)
-LOG_LEVEL = env_str("LOG_LEVEL", "INFO")
+LOG_LEVEL = env_str("LOG_LEVEL", "DEBUG")
 
 # ==================== 存储配置 ====================
 
@@ -106,7 +106,7 @@ AI_API_KEY = env_str(
     "AI_API_KEY", "sk-ITfMuFSPqkIAV17fWK9cDdrFXjW0zd8B2ldtuWqbyRzCeXtd"
 )
 AI_MODEL = env_str("AI_MODEL", "qwen3.5-35b-a3b")
-AI_TIMEOUT_SECONDS = env_int("AI_TIMEOUT_SECONDS", 30)
+AI_TIMEOUT_SECONDS = env_int("AI_TIMEOUT_SECONDS", 300)
 AI_MAX_TAGS = env_int("AI_MAX_TAGS", 12)
 AI_PROMPT = env_str(
     "AI_PROMPT",

@@ -70,7 +70,18 @@ export async function login(
     method: 'POST',
     body: formData,
   })
-  return res.json()
+  const payload = await res.json()
+
+  // FastAPI HTTPException 格式：{detail: "..."}
+  if ('detail' in payload) {
+    return {
+      code: res.status,
+      message: payload.detail,
+      data: null as unknown as LoginData,
+    }
+  }
+
+  return payload as ApiResponse<LoginData>
 }
 
 /** 获取图片列表（分页） */
