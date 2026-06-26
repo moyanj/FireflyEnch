@@ -88,19 +88,15 @@ class NsfwDetector:
         # 构建概率字典
         prob_dict = {_CLASSES[i]: float(probs[i]) for i in range(len(_CLASSES))}
 
-        # 判定 NSFW
+        # 判定 NSFW（加权合并）
         hentai = prob_dict.get("hentai", 0.0)
         porn = prob_dict.get("porn", 0.0)
         sexy = prob_dict.get("sexy", 0.0)
 
-        is_nsfw = (
-            hentai >= config.NSFW_HENTAI_THRESHOLD
-            or porn >= config.NSFW_PORN_THRESHOLD
-            or sexy >= config.NSFW_SEXY_THRESHOLD
-        )
+        # 加权合并: porn=0.5, hentai=0.3, sexy=0.2
+        nsfw_score = porn * 0.5 + hentai * 0.3 + sexy * 0.2
 
-        # 最高分的 NSFW 相关类
-        nsfw_score = max(hentai, porn, sexy)
+        is_nsfw = nsfw_score >= config.NSFW_THRESHOLD
 
         # 最高分类别
         top_idx = int(np.argmax(probs))

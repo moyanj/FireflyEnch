@@ -74,10 +74,9 @@ FireflyEnch/
 - **主站**: `--color-*` 变量（暗夜萤火主题，萤火虫绿 `#a8e600`）
 - **管理后台**: `--terminal-*` 变量（黑曜石终端主题）
 
-### NSFW 三级阈值
-- Hentai（二次元）: 0.5
-- Porn（真实）: 0.5
-- Sexy（擦边球）: 0.6
+### NSFW 加权阈值
+- 加权合并: `score = porn×0.5 + hentai×0.3 + sexy×0.2`
+- 阈值: 0.65（≥ 判定为 NSFW）
 
 ### 两步上传模式
 - 直接上传: `POST /api/images`

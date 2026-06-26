@@ -94,9 +94,8 @@ CLEANUP_INTERVAL_SECONDS = env_int("CLEANUP_INTERVAL_SECONDS", 300)
 # ==================== NSFW 检测配置 ====================
 
 NSFW_MODEL_PATH = env_optional_str("NSFW_MODEL_PATH")
-NSFW_HENTAI_THRESHOLD = env_float("NSFW_HENTAI_THRESHOLD", 0.5)
-NSFW_PORN_THRESHOLD = env_float("NSFW_PORN_THRESHOLD", 0.5)
-NSFW_SEXY_THRESHOLD = env_float("NSFW_SEXY_THRESHOLD", 0.6)
+# 加权合并阈值: score = porn*0.5 + hentai*0.3 + sexy*0.2, >=阈值判定NSFW
+NSFW_THRESHOLD = env_float("NSFW_THRESHOLD", 0.65)
 
 # ==================== AI 自动标签 ====================
 
