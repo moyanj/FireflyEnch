@@ -105,6 +105,33 @@ def parse_tags(tags: str) -> list[str]:
     return normalize_tags(tags.split(",")) if tags else []
 
 
+def parse_search_query(query: str) -> tuple[list[str], list[str], list[str]]:
+    """将搜索串解析为 OR / AND / NOT 三组标签。"""
+    or_tags: list[str] = []
+    and_tags: list[str] = []
+    not_tags: list[str] = []
+
+    for raw_token in query.split():
+        token = raw_token.strip()
+        if not token:
+            continue
+
+        if token.startswith("+") and len(token) > 1:
+            and_tags.append(token[1:])
+            continue
+        if token.startswith("-") and len(token) > 1:
+            not_tags.append(token[1:])
+            continue
+
+        or_tags.append(token)
+
+    return (
+        normalize_tags(or_tags),
+        normalize_tags(and_tags),
+        normalize_tags(not_tags),
+    )
+
+
 async def cleanup_expired_prepared_uploads(
     prepared_uploads: dict[str, Any],
     temp_upload_folder: str,

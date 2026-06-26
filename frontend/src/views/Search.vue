@@ -2,75 +2,144 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ImageGallery from '@/components/ImageGallery.vue'
-import { getAllTags, getRandomImageInfo, searchByTag } from '@/api'
+import { getRandomImageInfo, searchImages } from '@/api'
 import type { Image } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
 
-const searchQuery = ref('')
+const inputQuery = ref('')
+const activeQuery = ref('')
 const images = ref<Image[]>([])
+const resultCount = ref(0)
+const currentPage = ref(1)
+const hasMore = ref(false)
 const isLoading = ref(false)
+const isLoadingMore = ref(false)
 const errorMsg = ref('')
 const hasSearched = ref(false)
-const resultCount = ref(0)
 const randomPending = ref(false)
-const allTags = ref<string[]>([])
 
 type SearchState = 'initial' | 'loading' | 'results' | 'empty' | 'error'
+
 const searchState = computed<SearchState>(() => {
   if (!hasSearched.value) return 'initial'
-  if (isLoading.value) return 'loading'
+  if (isLoading.value && images.value.length === 0) return 'loading'
   if (errorMsg.value) return 'error'
   if (images.value.length === 0) return 'empty'
   return 'results'
 })
 
-const trimmedQuery = computed(() => searchQuery.value.trim())
+const syntaxExamples = [
+  '白发 女仆 = OR',
+  '+白发 +女仆 = AND',
+  '白发 -r18 = 排除',
+  '白色 可匹配 白色衣服',
+]
 
-const relatedTags = computed(() => {
-  return allTags.value
-    .filter(tag => tag !== trimmedQuery.value)
-    .map(tag => ({ tag, sortKey: Math.random() }))
-    .sort((a, b) => a.sortKey - b.sortKey)
-    .slice(0, 8)
-    .map(item => item.tag)
-})
+function normalizeQuery(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
 
-async function doSearch() {
-  if (!trimmedQuery.value) return
+function normalizePage(value: unknown): number {
+  const raw = typeof value === 'string' ? Number.parseInt(value, 10) : Number.NaN
+  return Number.isFinite(raw) && raw > 1 ? raw : 1
+}
 
-  isLoading.value = true
+function resetSearchState(nextInput: string) {
+  inputQuery.value = nextInput
+  activeQuery.value = ''
+  images.value = []
+  resultCount.value = 0
+  currentPage.value = 1
+  hasMore.value = false
+  isLoading.value = false
+  isLoadingMore.value = false
+  errorMsg.value = ''
+  hasSearched.value = false
+}
+
+async function fetchSearch(query: string, page: number) {
+  const append = query === activeQuery.value && page > 1
+
   errorMsg.value = ''
   hasSearched.value = true
+  if (append) {
+    isLoadingMore.value = true
+  } else {
+    isLoading.value = true
+  }
 
   try {
-    const res = await searchByTag(trimmedQuery.value)
+    const res = await searchImages({ q: query, page })
     if (res.code !== 200) {
       errorMsg.value = res.message
-      images.value = []
+      if (!append) {
+        images.value = []
+      }
       return
     }
 
-    images.value = res.data.images
+    activeQuery.value = query
+    currentPage.value = res.data.page
     resultCount.value = res.data.total
-
-    if (images.value.length === 0) {
-      errorMsg.value = ''
-    }
-
-    router.replace({ path: '/search', query: { tag: trimmedQuery.value } })
+    hasMore.value = !res.data.last
+    images.value = append
+      ? [...images.value, ...res.data.images]
+      : res.data.images
   } catch {
     errorMsg.value = '搜索失败，请稍后再试'
-    images.value = []
+    if (!append) {
+      images.value = []
+    }
   } finally {
     isLoading.value = false
+    isLoadingMore.value = false
   }
 }
 
-function handleSubmit(e: Event) {
-  e.preventDefault()
-  doSearch()
+async function syncFromRoute() {
+  const q = normalizeQuery(route.query.q)
+  const page = normalizePage(route.query.page)
+  inputQuery.value = q
+
+  if (!q) {
+    resetSearchState('')
+    return
+  }
+
+  await fetchSearch(q, page)
+}
+
+async function submitSearch() {
+  const q = inputQuery.value.trim()
+  if (!q) {
+    await router.push({ path: '/search' })
+    return
+  }
+
+  await router.push({
+    path: '/search',
+    query: { q },
+  })
+}
+
+async function clearSearch() {
+  await router.push({ path: '/search' })
+}
+
+async function loadMore() {
+  if (!hasMore.value || isLoading.value || isLoadingMore.value || !activeQuery.value) {
+    return
+  }
+
+  await router.replace({
+    path: '/search',
+    query: {
+      q: activeQuery.value,
+      page: String(currentPage.value + 1),
+    },
+  })
 }
 
 async function jumpToRandomImage() {
@@ -85,34 +154,16 @@ async function jumpToRandomImage() {
   }
 }
 
-function openSuggestedTag(tag: string) {
-  searchQuery.value = tag
-  doSearch()
-}
-
-async function loadAllTags() {
-  try {
-    const res = await getAllTags()
-    if (res.code === 200 && res.data?.tags) {
-      allTags.value = res.data.tags
-    }
-  } catch {
-    allTags.value = []
-  }
-}
-
-watch(() => route.query.tag, (tag) => {
-  if (tag && typeof tag === 'string') {
-    searchQuery.value = tag
-    doSearch()
-  }
-}, { immediate: true })
+watch(
+  () => [route.query.q, route.query.page],
+  () => {
+    void syncFromRoute()
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
-  if (route.query.tag && typeof route.query.tag === 'string') {
-    searchQuery.value = route.query.tag
-  }
-  loadAllTags()
+  inputQuery.value = normalizeQuery(route.query.q)
 })
 </script>
 
@@ -120,52 +171,62 @@ onMounted(() => {
   <div class="search">
     <section class="search__hero">
       <div class="search__hero-copy">
-        <p class="search__eyebrow">Tag Explorer</p>
-        <h1 class="search__title">溯流而上，掘尽万象。</h1>
+        <p class="search__eyebrow">Structured Tag Search</p>
+        <h1 class="search__title">把标签搜索变成可组合查询。</h1>
+        <p class="search__desc">
+          只按标签匹配，不做联想。空格默认 OR，<code>+</code> 是 AND，<code>-</code> 是 NOT，普通词也会匹配更长标签。
+        </p>
       </div>
 
-      <div class="search__hero-side">
-        <button class="search__random" type="button" :disabled="randomPending" @click="jumpToRandomImage">
-          <span class="search__random-icon">↗</span>
-          <span>{{ randomPending ? '跳转中...' : '随机看看' }}</span>
-        </button>
-      </div>
+      <button class="search__random" type="button" :disabled="randomPending" @click="jumpToRandomImage">
+        <span class="search__random-icon">↗</span>
+        <span>{{ randomPending ? '跳转中...' : '随机看看' }}</span>
+      </button>
     </section>
 
-    <form class="search__form" @submit="handleSubmit">
-      <input v-model="searchQuery" type="search" class="search__input" placeholder="搜索标签..." aria-label="搜索标签">
-      <button type="submit" class="search__btn" :disabled="isLoading">
+    <form class="search__form" @submit.prevent="submitSearch">
+      <input
+        v-model="inputQuery"
+        type="search"
+        class="search__input"
+        placeholder="例如：白发 +女仆 -r18"
+        aria-label="搜索标签"
+      >
+      <button type="submit" class="search__btn" :disabled="isLoading || isLoadingMore">
         <span class="search__btn-icon">✦</span>
-        <span v-if="!isLoading">搜索</span>
-        <span v-else>...</span>
+        <span>搜索</span>
+      </button>
+      <button
+        v-if="inputQuery || hasSearched"
+        type="button"
+        class="search__ghost-btn"
+        :disabled="isLoading || isLoadingMore"
+        @click="clearSearch"
+      >
+        清空
       </button>
     </form>
 
-    <section v-if="searchState === 'results'" class="search__summary">
-      <div class="search__summary-main">
-        <p class="search__summary-label">当前探索</p>
-        <div class="search__summary-row">
-          <span class="search__result-tag">#{{ trimmedQuery }}</span>
-          <span class="search__result-count">找到 {{ resultCount }} 张图片</span>
-        </div>
-      </div>
+    <section class="search__syntax">
+      <span v-for="example in syntaxExamples" :key="example" class="search__syntax-chip">
+        {{ example }}
+      </span>
+    </section>
 
-      <div class="search__summary-meta">
-        <p class="search__summary-label">继续延展</p>
-        <div v-if="relatedTags.length > 0" class="search__related-tags">
-          <button v-for="tag in relatedTags" :key="tag" type="button" class="search__related-tag"
-            @click="openSuggestedTag(tag)">
-            <span>#{{ tag }}</span>
-          </button>
+    <section v-if="searchState === 'results'" class="search__summary">
+      <div>
+        <p class="search__summary-label">当前查询</p>
+        <div class="search__summary-row">
+          <span class="search__result-query">{{ activeQuery }}</span>
+          <span class="search__result-count">共 {{ resultCount }} 张，第 {{ currentPage }} 页</span>
         </div>
-        <p v-else class="search__summary-empty">当前结果里没有足够多的其他标签，试试换个更宽一点的关键词。</p>
       </div>
     </section>
 
     <div v-if="searchState === 'initial'" class="search__state search__state--initial">
       <span class="search__state-icon">✦</span>
-      <p>输入标签搜索图片</p>
-      <p class="search__state-hint">支持中文标签，如「白发」「双马尾」</p>
+      <p>输入一条标签查询开始搜索</p>
+      <p class="search__state-hint">支持组合、排除和子串匹配，不支持自然语言联想。</p>
     </div>
 
     <div v-if="searchState === 'loading'" class="search__state search__state--loading">
@@ -173,21 +234,24 @@ onMounted(() => {
       <span>搜索中...</span>
     </div>
 
-    <ImageGallery v-if="searchState === 'results'" :images="images" :loading="false" :has-more="false" />
+    <ImageGallery
+      v-if="searchState === 'results'"
+      :images="images"
+      :loading="isLoadingMore"
+      :has-more="hasMore"
+      @load-more="loadMore"
+    />
 
     <div v-if="searchState === 'empty'" class="search__state search__state--empty">
       <span class="search__state-icon">∅</span>
-      <p>没有找到标签为「{{ searchQuery }}」的图片</p>
-      <p class="search__state-hint">可以尝试更短的标签，或者直接随机看看。</p>
-      <button class="search__retry-btn" type="button" :disabled="randomPending" @click="jumpToRandomImage">
-        {{ randomPending ? '跳转中...' : '换个方向，随机看看' }}
-      </button>
+      <p>没有找到符合「{{ inputQuery }}」的图片</p>
+      <p class="search__state-hint">试试更短的词，或减少 `+` 条件、增加空格 OR 条件。</p>
     </div>
 
     <div v-if="searchState === 'error'" class="search__state search__state--error">
       <span class="search__state-icon">!</span>
       <p>{{ errorMsg }}</p>
-      <button class="search__retry-btn" type="button" @click="doSearch">重试</button>
+      <button class="search__ghost-btn" type="button" @click="submitSearch">重试</button>
     </div>
   </div>
 </template>
@@ -199,14 +263,15 @@ onMounted(() => {
 
 .search__hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(192px, 0.6fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-lg);
+  align-items: end;
   padding: var(--space-xl);
   margin-bottom: var(--space-lg);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-xl);
   background:
-    radial-gradient(circle at top left, rgba(168, 230, 0, 0.18), transparent 30%),
+    radial-gradient(circle at top left, rgba(168, 230, 0, 0.18), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.02), transparent 55%),
     var(--color-surface);
   box-shadow: var(--shadow-md);
@@ -221,28 +286,27 @@ onMounted(() => {
 }
 
 .search__title {
-  max-width: 16ch;
+  max-width: 18ch;
   font-size: clamp(1.6rem, 4vw, 2.72rem);
   line-height: 1.05;
 }
 
 .search__desc {
-  max-width: 56ch;
+  max-width: 58ch;
   margin-top: var(--space-md);
   color: var(--color-text-secondary);
+  font-size: 0.86rem;
 }
 
-.search__hero-side {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
+.search__desc code {
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .search__random {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  min-height: 38px;
+  min-height: 40px;
   padding: 0 var(--space-lg);
   border: 1px solid rgba(168, 230, 0, 0.25);
   border-radius: var(--radius-full);
@@ -271,21 +335,20 @@ onMounted(() => {
 }
 
 .search__form {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: var(--space-sm);
-  max-width: 512px;
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .search__input {
-  flex: 1;
-  min-height: 40px;
+  min-height: 42px;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
-  font-size: 0.8rem;
+  font-size: 0.86rem;
   outline: none;
   transition:
     border-color var(--transition-fast),
@@ -297,120 +360,93 @@ onMounted(() => {
   box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
-.search__input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.search__btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  justify-content: center;
-  min-width: 96px;
-  min-height: 40px;
-  padding: var(--space-sm) var(--space-lg);
-  background-color: var(--color-accent);
-  color: var(--color-bg);
-  border: none;
+.search__btn,
+.search__ghost-btn {
+  min-height: 42px;
+  padding: 0 var(--space-lg);
   border-radius: var(--radius-md);
   font-size: 0.8rem;
   cursor: pointer;
   transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
     background-color var(--transition-fast),
-    transform var(--transition-fast);
+    color var(--transition-fast);
 }
 
-.search__btn:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
+.search__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border: none;
+  background-color: var(--color-accent);
+  color: var(--color-bg);
 }
 
-.search__btn:active:not(:disabled) {
-  transform: scale(0.98);
+.search__btn:hover:not(:disabled),
+.search__ghost-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
-.search__btn:disabled {
+.search__ghost-btn {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.search__btn:disabled,
+.search__ghost-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
 
-.search__btn-icon {
-  font-size: 0.88rem;
+.search__syntax {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.search__syntax-chip {
+  padding: 0.38rem 0.72rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
 }
 
 .search__summary {
-  display: grid;
-  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
-  gap: var(--space-lg);
   padding: var(--space-lg);
   margin-bottom: var(--space-lg);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 50%),
-    var(--color-surface);
+  background: var(--color-surface);
 }
 
 .search__summary-label {
-  margin-bottom: var(--space-sm);
+  margin-bottom: var(--space-xs);
   color: var(--color-text-muted);
-  font-size: 0.64rem;
-  letter-spacing: 0.08em;
+  font-size: 0.68rem;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .search__summary-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-md);
   flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
 }
 
-.search__result-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 var(--space-md);
-  border-radius: var(--radius-full);
-  background: rgba(168, 230, 0, 0.12);
+.search__result-query {
+  font-family: 'JetBrains Mono', monospace;
   color: var(--color-accent);
-  font-family: var(--font-display);
 }
 
 .search__result-count {
   color: var(--color-text-secondary);
-}
-
-.search__related-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-}
-
-.search__related-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.44rem 0.68rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.search__related-tag:hover {
-  transform: translateY(-1px);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
-.search__summary-empty {
-  color: var(--color-text-secondary);
-  font-size: 0.74rem;
+  font-size: 0.82rem;
 }
 
 .search__state {
@@ -418,58 +454,29 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-2xl);
   gap: var(--space-sm);
+  padding: var(--space-2xl);
+  text-align: center;
+  color: var(--color-text-muted);
 }
 
 .search__state-icon {
-  font-size: 2rem;
-  margin-bottom: var(--space-sm);
-}
-
-.search__state--initial {
-  color: var(--color-text-muted);
-  min-height: 40vh;
-}
-
-.search__state--initial .search__state-icon {
+  font-size: 2.2rem;
   color: var(--color-accent);
-  text-shadow: var(--shadow-glow);
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-
-  0%,
-  100% {
-    opacity: 0.6;
-  }
-
-  50% {
-    opacity: 1;
-  }
 }
 
 .search__state-hint {
-  color: var(--color-text-muted);
-  opacity: 0.7;
-  font-size: 0.68rem;
-  text-align: center;
-}
-
-.search__state--loading {
-  color: var(--color-text-muted);
-  font-size: 0.72rem;
+  max-width: 36ch;
+  font-size: 0.82rem;
 }
 
 .search__spinner {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
   border: 2px solid var(--color-border);
   border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-  margin-bottom: var(--space-sm);
 }
 
 @keyframes spin {
@@ -478,65 +485,21 @@ onMounted(() => {
   }
 }
 
-.search__state--empty {
-  color: var(--color-text-muted);
-  min-height: 30vh;
-}
+@media (max-width: 768px) {
+  .search__hero {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
 
-.search__state--empty .search__state-icon {
-  color: var(--color-border);
-}
-
-.search__state--error {
-  color: var(--color-text-muted);
-}
-
-.search__state--error .search__state-icon {
-  color: #e54545;
-}
-
-.search__retry-btn {
-  min-height: 35px;
-  margin-top: var(--space-sm);
-  padding: 0 var(--space-lg);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: 0.72rem;
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-
-.search__retry-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: var(--color-accent-glow);
-}
-
-@media (max-width: 960px) {
-
-  .search__hero,
-  .search__summary {
+  .search__form {
     grid-template-columns: 1fr;
   }
 
-  .search__hero-side {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 640px) {
-  .search__form {
-    flex-direction: column;
-    max-width: none;
-  }
-
-  .search__btn {
+  .search__btn,
+  .search__ghost-btn,
+  .search__random {
     width: 100%;
+    justify-content: center;
   }
 }
 </style>

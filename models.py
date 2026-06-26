@@ -1,4 +1,5 @@
 import time
+from functools import cmp_to_key
 from tortoise.models import Model
 from tortoise import fields, connections
 from typing import List, Optional, Dict, Any, Tuple
@@ -80,6 +81,126 @@ class Image(Model):
             "created_at_asc": "created_at",
         }
         return sort_map.get(sort, "-id")
+
+    @classmethod
+    def _sort_compare(cls, left: "Image", right: "Image", sort: str) -> int:
+        order_field = cls._resolve_sort(sort)
+        reverse = order_field.startswith("-")
+        field_name = order_field.lstrip("-")
+        left_value = getattr(left, field_name, None)
+        right_value = getattr(right, field_name, None)
+
+        if left_value is None and right_value is None:
+            return 0
+        if left_value is None:
+            return 1
+        if right_value is None:
+            return -1
+        if left_value == right_value:
+            return 0
+
+        if left_value < right_value:
+            return 1 if reverse else -1
+        return -1 if reverse else 1
+
+    @classmethod
+    def _match_token(cls, tags: list[str], token: str) -> tuple[bool, int, int]:
+        token_key = token.casefold()
+        exact_matches = 0
+        fuzzy_matches = 0
+
+        for tag in tags:
+            candidate = tag.casefold()
+            if candidate == token_key:
+                exact_matches += 1
+                continue
+            if token_key in candidate:
+                fuzzy_matches += 1
+
+        return (exact_matches > 0 or fuzzy_matches > 0, exact_matches, fuzzy_matches)
+
+    @classmethod
+    async def search(
+        cls,
+        or_tags: List[str],
+        and_tags: List[str],
+        not_tags: List[str],
+        page: int = 1,
+        page_size: int = 20,
+        sort: str = "id_desc",
+        nsfw: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """按 OR / AND / NOT 标签组合搜索图片。"""
+        queryset = cls.all()
+        if nsfw is not None:
+            queryset = queryset.filter(nsfw=nsfw)
+
+        all_images = await queryset
+        scored_images: list[tuple[int, int, Image]] = []
+
+        for image in all_images:
+            image_tags = image.tags or []
+            if not image_tags:
+                continue
+
+            and_exact = 0
+            and_fuzzy = 0
+            and_ok = True
+            for token in and_tags:
+                matched, exact_count, fuzzy_count = cls._match_token(image_tags, token)
+                if not matched:
+                    and_ok = False
+                    break
+                and_exact += exact_count
+                and_fuzzy += fuzzy_count
+            if not and_ok:
+                continue
+
+            if any(cls._match_token(image_tags, token)[0] for token in not_tags):
+                continue
+
+            or_exact = 0
+            or_fuzzy = 0
+            or_matched = not or_tags
+            for token in or_tags:
+                matched, exact_count, fuzzy_count = cls._match_token(image_tags, token)
+                if matched:
+                    or_matched = True
+                    or_exact += exact_count
+                    or_fuzzy += fuzzy_count
+            if not or_matched:
+                continue
+
+            scored_images.append((or_exact + and_exact, or_fuzzy + and_fuzzy, image))
+
+        scored_images.sort(
+            key=cmp_to_key(
+                lambda left, right: (
+                    -1
+                    if left[0] > right[0]
+                    else 1
+                    if left[0] < right[0]
+                    else -1
+                    if left[1] > right[1]
+                    else 1
+                    if left[1] < right[1]
+                    else cls._sort_compare(left[2], right[2], sort)
+                )
+            )
+        )
+
+        matched_images = [item[2] for item in scored_images]
+        total = len(matched_images)
+        offset = (page - 1) * page_size
+        images = matched_images[offset : offset + page_size]
+
+        return {
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "images": [img.to_dict() for img in images],
+            "last": offset + page_size >= total,
+        }
 
     @classmethod
     async def get_all(

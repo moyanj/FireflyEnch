@@ -86,6 +86,7 @@ from utils import (
     cleanup_expired_prepared_uploads,
     get_safe_path,
     normalize_tags,
+    parse_search_query,
     parse_tags,
 )
 
@@ -717,6 +718,7 @@ async def upload_image(
 async def get_images(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    q: Optional[str] = Query(None, description="搜索串，支持空格/+/−组合"),
     tag: Optional[str] = Query(None, description="标签列表，逗号分隔"),
     id: Optional[int] = Query(None, description="精确 ID 查找"),
     nsfw: Optional[bool] = Query(
@@ -750,7 +752,20 @@ async def get_images(
             }
         )
 
-    # 按标签筛选（含分页）
+    if q:
+        or_tags, and_tags, not_tags = parse_search_query(q)
+        result = await Image.search(
+            or_tags=or_tags,
+            and_tags=and_tags,
+            not_tags=not_tags,
+            page=page,
+            page_size=page_size,
+            sort=sort,
+            nsfw=nsfw,
+        )
+        return jsonify(result)
+
+    # 兼容旧标签筛选（含分页）
     if tag:
         tag_list = parse_tags(tag)
         result = await Image.get_by_tags(tag_list, page, page_size, sort, nsfw)

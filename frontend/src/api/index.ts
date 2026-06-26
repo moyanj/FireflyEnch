@@ -1,13 +1,14 @@
 import type {
   ApiResponse,
   ImagesListData,
-  TagSearchData,
+  ImageSearchData,
   AllTagsData,
   UploadData,
   Image,
   LoginData,
   AiTagSuggestionData,
   AdminImageQuery,
+  SearchImagesParams,
 } from './types'
 import { getAdminToken } from '@/auth'
 
@@ -113,9 +114,17 @@ export async function getRandomImageInfo(): Promise<ApiResponse<Image>> {
   return request<Image>(`/images/random`)
 }
 
-/** 标签搜索 */
-export async function searchByTag(tag: string): Promise<ApiResponse<TagSearchData>> {
-  return request<TagSearchData>(`/images?tag=${encodeURIComponent(tag)}`)
+/** 前台图片搜索 */
+export async function searchImages(params: SearchImagesParams = {}): Promise<ApiResponse<ImageSearchData>> {
+  const query = new URLSearchParams()
+  if (params.q) query.set('q', params.q)
+  if (params.page) query.set('page', String(params.page))
+  if (params.page_size) query.set('page_size', String(params.page_size))
+  if (params.nsfw !== undefined) query.set('nsfw', String(params.nsfw))
+  if (params.sort) query.set('sort', params.sort)
+
+  const qs = query.toString()
+  return request<ImageSearchData>(`/images${qs ? `?${qs}` : ''}`)
 }
 
 /** 获取全部标签 */

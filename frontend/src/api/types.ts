@@ -35,10 +35,22 @@ export interface AdminImageQuery {
   sort?: 'id_desc' | 'id_asc' | 'created_at_desc' | 'created_at_asc'
 }
 
-/** 标签搜索响应 */
-export interface TagSearchData {
+/** 前台图片搜索参数 */
+export interface SearchImagesParams {
+  q?: string
+  page?: number
+  page_size?: number
+  nsfw?: boolean
+  sort?: 'id_desc' | 'id_asc' | 'created_at_desc' | 'created_at_asc'
+}
+
+/** 图片搜索响应 */
+export interface ImageSearchData {
   total: number
+  page: number
+  page_size: number
   images: Image[]
+  last: boolean
 }
 
 /** 全部标签响应 */
