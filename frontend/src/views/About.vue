@@ -86,7 +86,7 @@ onMounted(() => {
 
 .about__card {
   text-align: center;
-  max-width: 600px;
+  max-width: 480px;
   width: 100%;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
@@ -104,7 +104,7 @@ onMounted(() => {
 }
 
 .about__logo-img {
-  width: 160px;
+  width: 128px;
   height: auto;
   margin-bottom: var(--space-md);
   filter: drop-shadow(0 0 20px var(--color-accent-glow));
@@ -116,14 +116,14 @@ onMounted(() => {
 }
 
 .about__logo-note {
-  font-size: 0.7rem;
+  font-size: 0.56rem;
   color: var(--color-text-muted);
   font-style: italic;
 }
 
 .about__title {
   font-family: var(--font-display);
-  font-size: 2.5rem;
+  font-size: 2rem;
   margin-bottom: var(--space-sm);
   color: var(--color-text);
   letter-spacing: -0.02em;
@@ -131,7 +131,7 @@ onMounted(() => {
 }
 
 .about__version {
-  font-size: 1rem;
+  font-size: 0.8rem;
   color: var(--color-accent);
   margin-bottom: var(--space-xl);
   font-weight: 500;
@@ -139,7 +139,7 @@ onMounted(() => {
 
 .about__slogan {
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: 0.96rem;
   color: var(--color-text-secondary);
   margin-bottom: var(--space-2xl);
   line-height: 1.6;
@@ -154,7 +154,7 @@ onMounted(() => {
 
 .about__link {
   color: var(--color-accent);
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 500;
   padding: var(--space-sm) var(--space-lg);
   border: 1px solid var(--color-accent);
@@ -171,7 +171,7 @@ onMounted(() => {
 
 .about__meta {
   color: var(--color-text-muted);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   padding-top: var(--space-lg);
   border-top: 1px solid var(--color-border-subtle);
 }
@@ -196,16 +196,16 @@ onMounted(() => {
   }
 
   .about__card {
-    max-width: 500px;
+    max-width: 400px;
     padding: var(--space-2xl);
   }
 
   .about__title {
-    font-size: 2rem;
+    font-size: 1.6rem;
   }
 
   .about__logo-img {
-    width: 140px;
+    width: 112px;
   }
 }
 
@@ -216,16 +216,16 @@ onMounted(() => {
   }
 
   .about__card {
-    max-width: 450px;
+    max-width: 360px;
     padding: var(--space-xl);
   }
 
   .about__title {
-    font-size: 1.8rem;
+    font-size: 1.44rem;
   }
 
   .about__slogan {
-    font-size: 1rem;
+    font-size: 0.8rem;
   }
 
   .about__links {
@@ -250,19 +250,19 @@ onMounted(() => {
   }
 
   .about__title {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
   }
 
   .about__logo-img {
-    width: 120px;
+    width: 96px;
   }
 
   .about__slogan {
-    font-size: 0.9rem;
+    font-size: 0.72rem;
   }
 
   .about__meta {
-    font-size: 0.75rem;
+    font-size: 0.6rem;
   }
 }
 </style>

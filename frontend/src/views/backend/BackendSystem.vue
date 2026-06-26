@@ -114,7 +114,7 @@ function executeLogout() {
 
 <style scoped>
 .bs-page {
-  max-width: 680px;
+  max-width: 544px;
 }
 
 .bs-page__header {
@@ -123,14 +123,14 @@ function executeLogout() {
 
 .bs-page__title {
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1.08rem;
   color: var(--terminal-text-bright);
   margin-bottom: var(--space-xs);
 }
 
 .bs-page__desc {
   color: var(--terminal-text-dim);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 .bs-sections {
@@ -152,13 +152,13 @@ function executeLogout() {
 }
 
 .bs-card__title {
-  font-size: 1rem;
+  font-size: 0.80rem;
   color: var(--terminal-text-bright);
   margin-bottom: 2px;
 }
 
 .bs-card__desc {
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   color: var(--terminal-text-dim);
 }
 
@@ -174,11 +174,11 @@ function executeLogout() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.6rem 1rem;
+  padding: 0.48rem 0.80rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   cursor: pointer;
   transition: all var(--transition-fast);
   text-decoration: none;
@@ -229,7 +229,7 @@ function executeLogout() {
 
 /* ── 消息 ── */
 .bs-msg {
-  font-size: 0.8rem;
+  font-size: 0.64rem;
 }
 
 .bs-msg--success {
@@ -249,7 +249,7 @@ function executeLogout() {
 
 .bs-confirm__text {
   color: var(--terminal-danger);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 .bs-confirm__actions {

@@ -316,7 +316,7 @@ async function handleUpload() {
 
 <style scoped>
 .bu-page {
-  max-width: 1100px;
+  max-width: 880px;
 }
 
 .bu-page__header {
@@ -325,14 +325,14 @@ async function handleUpload() {
 
 .bu-page__title {
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1.08rem;
   color: var(--terminal-text-bright);
   margin-bottom: var(--space-xs);
 }
 
 .bu-page__desc {
   color: var(--terminal-text-dim);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 /* ── 工作台布局 ── */
@@ -356,7 +356,7 @@ async function handleUpload() {
   border: 2px dashed var(--terminal-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  min-height: 260px;
+  min-height: 208px;
   transition: border-color var(--transition-fast);
   background-color: var(--terminal-surface);
 }
@@ -371,7 +371,7 @@ async function handleUpload() {
 
 .bu-upload__placeholder,
 .bu-upload__preview {
-  min-height: 260px;
+  min-height: 208px;
   display: grid;
   place-items: center;
 }
@@ -382,7 +382,7 @@ async function handleUpload() {
 }
 
 .bu-upload__icon {
-  font-size: 2.5rem;
+  font-size: 2.00rem;
   color: var(--terminal-accent);
   display: block;
   margin-bottom: var(--space-sm);
@@ -390,28 +390,28 @@ async function handleUpload() {
 
 .bu-upload__text {
   display: block;
-  font-size: 1rem;
+  font-size: 0.80rem;
   color: var(--terminal-text);
 }
 
 .bu-upload__hint {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   margin-top: var(--space-xs);
 }
 
 .bu-upload__preview-img {
   width: 100%;
-  height: 260px;
+  height: 208px;
   object-fit: contain;
 }
 
 .bu-upload__clear-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   background: var(--terminal-bg);
@@ -419,7 +419,7 @@ async function handleUpload() {
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.60rem;
   transition: all var(--transition-fast);
 }
 
@@ -436,7 +436,7 @@ async function handleUpload() {
 }
 
 .bu-label {
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   color: var(--terminal-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -444,13 +444,13 @@ async function handleUpload() {
 
 .bu-input {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.60rem 0.80rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
   font-family: var(--font-body);
-  font-size: 0.9rem;
+  font-size: 0.72rem;
   transition: border-color var(--transition-fast);
 }
 
@@ -466,7 +466,7 @@ async function handleUpload() {
 
 /* ── AI 建议状态 ── */
 .bu-ai-status {
-  min-height: 36px;
+  min-height: 29px;
   display: flex;
   align-items: center;
 }
@@ -480,7 +480,7 @@ async function handleUpload() {
   align-items: center;
   gap: var(--space-sm);
   color: var(--terminal-text-dim);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 .bu-ai-status__empty,
@@ -489,7 +489,7 @@ async function handleUpload() {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 .bu-ai-status__empty {
@@ -519,18 +519,18 @@ async function handleUpload() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 19px;
+  height: 19px;
 }
 
 .bu-ai-tag__input {
   width: 100%;
-  padding: 0.55rem 0.75rem;
+  padding: 0.44rem 0.60rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 .bu-ai-tag__input:focus {
@@ -539,8 +539,8 @@ async function handleUpload() {
 }
 
 .bu-ai-tag__remove {
-  width: 24px;
-  height: 24px;
+  width: 19px;
+  height: 19px;
   display: grid;
   place-items: center;
   background: transparent;
@@ -548,7 +548,7 @@ async function handleUpload() {
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: 0.56rem;
   transition: all var(--transition-fast);
 }
 
@@ -563,7 +563,7 @@ async function handleUpload() {
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
-  min-height: 36px;
+  min-height: 29px;
 }
 
 .bu-tag-summary__content {
@@ -578,12 +578,12 @@ async function handleUpload() {
   border-radius: var(--radius-sm);
   background-color: var(--terminal-accent-glow);
   color: var(--terminal-accent);
-  font-size: 0.78rem;
+  font-size: 0.62rem;
 }
 
 .bu-tag-summary__empty {
   color: var(--terminal-text-dim);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 /* ── 按钮 ── */
@@ -591,11 +591,11 @@ async function handleUpload() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.7rem 1rem;
+  padding: 0.56rem 0.80rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-size: 0.9rem;
+  font-size: 0.72rem;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -632,8 +632,8 @@ async function handleUpload() {
 }
 
 .bu-btn--compact {
-  padding: 0.45rem 0.7rem;
-  font-size: 0.8rem;
+  padding: 0.36rem 0.56rem;
+  font-size: 0.64rem;
 }
 
 /* ── 结果提示 ── */
@@ -643,7 +643,7 @@ async function handleUpload() {
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 .bu-result--success {
@@ -669,8 +669,8 @@ async function handleUpload() {
 
 /* ── 加载动画 ── */
 .bu-spinner {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--terminal-border);
   border-top-color: var(--terminal-accent);
   border-radius: 50%;

@@ -48,25 +48,25 @@
   --color-border-subtle: #252b33;
 
   /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.24);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.40);
-  --shadow-glow: 0 0 32px var(--color-accent-glow);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 3px 13px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 6px 26px rgba(0, 0, 0, 0.40);
+  --shadow-glow: 0 0 26px var(--color-accent-glow);
 
   /* Spacing */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-  --space-2xl: 48px;
-  --space-3xl: 64px;
+  --space-xs: 3px;
+  --space-sm: 6px;
+  --space-md: 13px;
+  --space-lg: 19px;
+  --space-xl: 26px;
+  --space-2xl: 38px;
+  --space-3xl: 51px;
 
   /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-sm: 5px;
+  --radius-md: 10px;
+  --radius-lg: 13px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* Transitions */
@@ -102,8 +102,8 @@
   --terminal-warning: #f5a623;
   --terminal-success: #3dd68c;
   --terminal-info: #58a6ff;
-  --terminal-sidebar-width: 260px;
-  --terminal-header-height: 56px;
+  --terminal-sidebar-width: 208px;
+  --terminal-header-height: 45px;
 }
 
 /* ============================================
@@ -113,8 +113,8 @@
    Custom Scrollbar - 暗夜萤火主题
    ============================================ */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -123,7 +123,7 @@
 
 ::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -136,7 +136,7 @@ html {
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
   margin-left: calc(-1 * (100vw - 100%));
   scrollbar-gutter: stable;
-  font-size: 16px;
+  font-size: 13px;
   scroll-behavior: smooth;
 }
 
@@ -189,7 +189,7 @@ a:hover {
 
 /* Utility classes */
 .container {
-  max-width: 1400px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: var(--space-lg);
 }

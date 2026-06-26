@@ -404,7 +404,7 @@ watch([nsfwFilter, sortBy], () => {
 
 <style scoped>
 .bi-page {
-  max-width: 1200px;
+  max-width: 960px;
 }
 
 .bi-page__header {
@@ -413,14 +413,14 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-page__title {
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1.08rem;
   color: var(--terminal-text-bright);
   margin-bottom: var(--space-xs);
 }
 
 .bi-page__desc {
   color: var(--terminal-text-dim);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 /* ── 查询区 ── */
@@ -459,7 +459,7 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-label {
-  font-size: 0.75rem;
+  font-size: 0.60rem;
   color: var(--terminal-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -467,12 +467,12 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-input,
 .bi-select {
-  padding: 0.6rem 0.85rem;
+  padding: 0.48rem 0.68rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   transition: border-color var(--transition-fast);
 }
 
@@ -483,19 +483,19 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-select {
-  min-width: 120px;
+  min-width: 96px;
   cursor: pointer;
 }
 
 .bi-textarea {
   width: 100%;
-  padding: 0.6rem 0.85rem;
+  padding: 0.48rem 0.68rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
   font-family: var(--font-body);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   resize: vertical;
 }
 
@@ -510,7 +510,7 @@ watch([nsfwFilter, sortBy], () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-sm);
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   color: var(--terminal-text-dim);
 }
 
@@ -522,7 +522,7 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-error {
   color: var(--terminal-danger);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   padding: var(--space-sm) 0;
 }
 
@@ -534,7 +534,7 @@ watch([nsfwFilter, sortBy], () => {
 .bi-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 .bi-table th {
@@ -544,7 +544,7 @@ watch([nsfwFilter, sortBy], () => {
   font-weight: 500;
   border-bottom: 1px solid var(--terminal-border);
   white-space: nowrap;
-  font-size: 0.75rem;
+  font-size: 0.60rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -561,12 +561,12 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-table__th--thumb {
-  width: 56px;
+  width: 45px;
 }
 
 .bi-thumb {
-  width: 48px;
-  height: 48px;
+  width: 38px;
+  height: 38px;
   object-fit: cover;
   border-radius: var(--radius-sm);
   border: 1px solid var(--terminal-border);
@@ -581,41 +581,41 @@ watch([nsfwFilter, sortBy], () => {
 .bi-table__tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
 }
 
 .bi-tag-chip {
   display: inline-flex;
-  padding: 1px 6px;
+  padding: 1px 5px;
   border-radius: var(--radius-sm);
   background-color: var(--terminal-accent-glow);
   color: var(--terminal-accent);
-  font-size: 0.72rem;
+  font-size: 0.58rem;
   white-space: nowrap;
 }
 
 .bi-tag-more {
-  font-size: 0.72rem;
+  font-size: 0.58rem;
   color: var(--terminal-text-dim);
 }
 
 .bi-table__time {
   white-space: nowrap;
   color: var(--terminal-text-dim);
-  font-size: 0.8rem;
+  font-size: 0.64rem;
 }
 
 .bi-table__actions {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   flex-wrap: nowrap;
 }
 
 .bi-nsfw-badge {
   display: inline-flex;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-size: 0.72rem;
+  font-size: 0.58rem;
   background-color: var(--terminal-surface);
   border: 1px solid var(--terminal-border);
   color: var(--terminal-text-dim);
@@ -632,10 +632,10 @@ watch([nsfwFilter, sortBy], () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.55rem 0.85rem;
+  padding: 0.44rem 0.68rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   cursor: pointer;
   font-family: var(--font-body);
   transition: all var(--transition-fast);
@@ -685,8 +685,8 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-btn--compact {
-  padding: 0.4rem 0.6rem;
-  font-size: 0.78rem;
+  padding: 0.32rem 0.48rem;
+  font-size: 0.62rem;
 }
 
 /* ── 空状态 ── */
@@ -697,7 +697,7 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-empty__icon {
-  font-size: 2rem;
+  font-size: 1.60rem;
   display: block;
   margin-bottom: var(--space-sm);
   color: var(--terminal-border-active);
@@ -713,14 +713,14 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-pagination__info {
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   color: var(--terminal-text-dim);
 }
 
 /* ── 加载动画 ── */
 .bi-spinner {
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
   border: 2px solid var(--terminal-border);
   border-top-color: var(--terminal-accent);
   border-radius: 50%;
@@ -745,7 +745,7 @@ watch([nsfwFilter, sortBy], () => {
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(480px, 90vw);
+  width: min(384px, 90vw);
   background-color: var(--terminal-surface);
   border-left: 1px solid var(--terminal-border);
   z-index: calc(var(--z-modal) + 1);
@@ -773,13 +773,13 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-drawer__title {
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 0.92rem;
   color: var(--terminal-text-bright);
 }
 
 .bi-drawer__close {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   background: transparent;
@@ -787,7 +787,7 @@ watch([nsfwFilter, sortBy], () => {
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   transition: all var(--transition-fast);
 }
 
@@ -813,7 +813,7 @@ watch([nsfwFilter, sortBy], () => {
 .bi-drawer__meta-row {
   display: flex;
   justify-content: space-between;
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   color: var(--terminal-text);
 }
 
@@ -835,20 +835,20 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-toggle__slider {
   position: relative;
-  width: 40px;
-  height: 22px;
+  width: 32px;
+  height: 18px;
   background-color: var(--terminal-border);
-  border-radius: 11px;
+  border-radius: 9px;
   transition: background-color var(--transition-fast);
 }
 
 .bi-toggle__slider::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
   background-color: var(--terminal-text-bright);
   border-radius: 50%;
   transition: transform var(--transition-fast);
@@ -863,10 +863,10 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-toggle__label {
-  font-size: 0.78rem;
+  font-size: 0.62rem;
   font-family: var(--font-display);
   color: var(--terminal-text-dim);
-  min-width: 28px;
+  min-width: 22px;
 }
 
 .bi-toggle__label--nsfw {
@@ -886,7 +886,7 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-drawer__save-msg {
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   color: var(--terminal-success);
 }
 
@@ -897,7 +897,7 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-drawer__confirm-text {
   color: var(--terminal-danger);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   margin-bottom: var(--space-sm);
 }
 

@@ -226,7 +226,7 @@ onMounted(loadAllTags)
 
 .detail__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(256px, 0.9fr);
   gap: var(--space-xl);
   align-items: start;
 }
@@ -279,12 +279,12 @@ onMounted(loadAllTags)
 .detail__nsfw-badge {
   display: inline-flex;
   align-items: center;
-  padding: 8px 28px;
+  padding: 6px 22px;
   border: 3px solid #dc2626;
   border-radius: var(--radius-full);
   color: #ef4444;
   font-family: var(--font-display);
-  font-size: 1.8rem;
+  font-size: 1.44rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   background: rgba(220, 38, 38, 0.15);
@@ -292,7 +292,7 @@ onMounted(loadAllTags)
 }
 
 .detail__nsfw-hint {
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   color: rgba(255, 255, 255, 0.6);
   letter-spacing: 0.08em;
   animation: pulse-hint 2s ease-in-out infinite;
@@ -328,19 +328,19 @@ onMounted(loadAllTags)
 .detail__eyebrow {
   margin-bottom: var(--space-xs);
   color: var(--color-accent);
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .detail__title {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: 1.6rem;
 }
 
 .detail__section-title {
   margin-bottom: var(--space-sm);
-  font-size: 1rem;
+  font-size: 0.8rem;
   color: var(--color-text);
 }
 
@@ -355,14 +355,14 @@ onMounted(loadAllTags)
 .detail__explore-tag {
   display: inline-flex;
   align-items: center;
-  padding: 0.4rem 0.75rem;
+  padding: 0.32rem 0.6rem;
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   background-color: var(--color-bg);
   color: var(--color-text-secondary);
   text-decoration: none;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -415,9 +415,9 @@ onMounted(loadAllTags)
 
 .detail__nsfw-status {
   display: inline-flex;
-  padding: 2px 10px;
+  padding: 2px 8px;
   border-radius: var(--radius-sm);
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   border: 1px solid var(--color-border);
   color: var(--color-text-muted);
 }
@@ -432,7 +432,7 @@ onMounted(loadAllTags)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
+  min-height: 38px;
   border-radius: var(--radius-md);
   text-decoration: none;
   transition:

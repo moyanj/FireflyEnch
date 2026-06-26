@@ -636,11 +636,11 @@ async def suggest_image_tags(
     if AI_ENABLED:
         try:
             suggested_tags = await generate_ai_tags(content, image.filename)
-        except (httpx.HTTPError, HTTPException, ValueError) as exc:
+        except (httpx.HTTPError, HTTPException, ValueError, TimeoutError) as exc:
             logger.warning(
                 "AI 标签建议失败 filename={} error={}",
                 image.filename,
-                exc,
+                str(exc),
             )
             suggested_tags = []
 
@@ -966,6 +966,9 @@ async def static_file(path: str) -> FileResponse:
 def main():
     """启动应用"""
     multiprocessing.cpu_count()
+    import dotenv
+
+    dotenv.load_dotenv(".env.debug")
     logger.info("启动 Uvicorn host=0.0.0.0 port={}", APP_PORT)
     uvicorn.run(
         "app:app",

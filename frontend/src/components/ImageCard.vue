@@ -104,7 +104,7 @@ function handleReveal() {
 .card__image-wrapper {
   position: relative;
   width: 100%;
-  min-height: 180px;
+  min-height: 144px;
   background-color: var(--color-bg-elevated);
   overflow: hidden;
 }
@@ -139,7 +139,7 @@ function handleReveal() {
 
 .card__shimmer {
   width: 60%;
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
   background: linear-gradient(90deg,
       var(--color-border) 25%,
@@ -176,12 +176,12 @@ function handleReveal() {
 .card__nsfw-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 14px;
+  padding: 3px 11px;
   border: 2px solid #dc2626;
   border-radius: var(--radius-full);
   color: #ef4444;
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   background: rgba(220, 38, 38, 0.15);
@@ -189,7 +189,7 @@ function handleReveal() {
 }
 
 .card__nsfw-hint {
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   color: rgba(255, 255, 255, 0.6);
   letter-spacing: 0.08em;
 }
@@ -205,7 +205,7 @@ function handleReveal() {
 }
 
 .card__tag {
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   color: var(--color-text-muted);
   text-decoration: none;
   padding: 2px var(--space-xs);
@@ -221,7 +221,7 @@ function handleReveal() {
 }
 
 .card__tag-more {
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   color: var(--color-text-muted);
   padding: 2px var(--space-xs);
   border-radius: var(--radius-sm);

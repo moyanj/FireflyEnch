@@ -58,7 +58,7 @@ defineEmits<{
 
 <style scoped>
 .gallery__grid {
-  column-width: 260px;
+  column-width: 208px;
   gap: var(--space-md);
 }
 
@@ -74,13 +74,13 @@ defineEmits<{
 
 @media (max-width: 1024px) {
   .gallery__grid {
-    column-width: 230px;
+    column-width: 184px;
   }
 }
 
 @media (max-width: 768px) {
   .gallery__grid {
-    column-width: 200px;
+    column-width: 160px;
   }
 }
 
@@ -128,12 +128,12 @@ defineEmits<{
   gap: var(--space-sm);
   padding: var(--space-xl);
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.72rem;
 }
 
 .gallery__spinner {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--color-border);
   border-top-color: var(--color-accent);
   border-radius: 50%;
@@ -157,7 +157,7 @@ defineEmits<{
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -176,7 +176,7 @@ defineEmits<{
   text-align: center;
   padding: var(--space-xl);
   color: var(--color-text-muted);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
 }
 
 /* Empty state */
@@ -190,7 +190,7 @@ defineEmits<{
 }
 
 .gallery__empty-icon {
-  font-size: 3rem;
+  font-size: 2.4rem;
   color: var(--color-accent);
   text-shadow: var(--shadow-glow);
   margin-bottom: var(--space-md);

@@ -223,7 +223,7 @@ onMounted(async () => {
 }
 
 .bl-login__card {
-  width: min(440px, 100%);
+  width: min(352px, 100%);
   padding: var(--space-2xl);
   background-color: var(--terminal-surface);
   border: 1px solid var(--terminal-border);
@@ -238,7 +238,7 @@ onMounted(async () => {
 
 .bl-login__icon {
   display: block;
-  font-size: 2rem;
+  font-size: 1.60rem;
   color: var(--terminal-accent);
   text-shadow: var(--shadow-glow);
   margin-bottom: var(--space-sm);
@@ -246,14 +246,14 @@ onMounted(async () => {
 
 .bl-login__title {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: 1.20rem;
   color: var(--terminal-text-bright);
   letter-spacing: -0.02em;
 }
 
 .bl-login__subtitle {
   color: var(--terminal-text-dim);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   margin-top: var(--space-xs);
 }
 
@@ -265,7 +265,7 @@ onMounted(async () => {
 }
 
 .bl-login__label {
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   color: var(--terminal-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -273,13 +273,13 @@ onMounted(async () => {
 
 .bl-login__input {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.60rem 0.80rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 0.76rem;
   transition: border-color var(--transition-fast);
 }
 
@@ -297,7 +297,7 @@ onMounted(async () => {
 }
 
 .bl-login__captcha-img {
-  height: 44px;
+  height: 35px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--terminal-border);
   background: #fff;
@@ -305,11 +305,11 @@ onMounted(async () => {
 
 .bl-login__btn {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.60rem 0.80rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 0.76rem;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -334,8 +334,8 @@ onMounted(async () => {
   border-color: var(--terminal-border);
   color: var(--terminal-text);
   width: auto;
-  padding: 0.5rem 0.85rem;
-  font-size: 0.85rem;
+  padding: 0.40rem 0.68rem;
+  font-size: 0.68rem;
 }
 
 .bl-login__btn--ghost:hover {
@@ -345,7 +345,7 @@ onMounted(async () => {
 
 .bl-login__msg {
   margin-top: var(--space-md);
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   text-align: center;
 }
 
@@ -361,7 +361,7 @@ onMounted(async () => {
   display: block;
   margin-top: var(--space-lg);
   text-align: center;
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   color: var(--terminal-text-dim);
   text-decoration: none;
 }
@@ -393,7 +393,7 @@ onMounted(async () => {
 .bl-header__hamburger {
   display: none;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   background: none;
   border: none;
   padding: var(--space-sm);
@@ -402,7 +402,7 @@ onMounted(async () => {
 
 .bl-header__hamburger span {
   display: block;
-  width: 18px;
+  width: 14px;
   height: 2px;
   background-color: var(--terminal-text);
   border-radius: 2px;
@@ -416,24 +416,24 @@ onMounted(async () => {
 }
 
 .bl-header__icon {
-  font-size: 1.2rem;
+  font-size: 0.96rem;
   color: var(--terminal-accent);
   text-shadow: 0 0 12px var(--terminal-accent-glow);
 }
 
 .bl-header__title {
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: 0.88rem;
   color: var(--terminal-text-bright);
 }
 
 .bl-header__logout {
-  padding: 0.4rem 0.85rem;
+  padding: 0.32rem 0.68rem;
   background: transparent;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -473,11 +473,11 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 0.65rem var(--space-md);
+  padding: 0.52rem var(--space-md);
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.72rem;
   transition: all var(--transition-fast);
 }
 
@@ -492,9 +492,9 @@ onMounted(async () => {
 }
 
 .bl-sidebar__icon {
-  width: 20px;
+  width: 16px;
   text-align: center;
-  font-size: 1rem;
+  font-size: 0.80rem;
 }
 
 .bl-sidebar__footer {
@@ -506,10 +506,10 @@ onMounted(async () => {
 
 .bl-sidebar__link {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   color: var(--terminal-text-dim);
   text-decoration: none;
-  padding: 0.5rem var(--space-md);
+  padding: 0.40rem var(--space-md);
   border-radius: var(--radius-sm);
   transition: color var(--transition-fast);
 }

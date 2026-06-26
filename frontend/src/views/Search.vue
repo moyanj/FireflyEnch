@@ -199,7 +199,7 @@ onMounted(() => {
 
 .search__hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.6fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(192px, 0.6fr);
   gap: var(--space-lg);
   padding: var(--space-xl);
   margin-bottom: var(--space-lg);
@@ -217,12 +217,12 @@ onMounted(() => {
   color: var(--color-accent);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-size: 0.78rem;
+  font-size: 0.62rem;
 }
 
 .search__title {
   max-width: 16ch;
-  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-size: clamp(1.6rem, 4vw, 2.72rem);
   line-height: 1.05;
 }
 
@@ -242,7 +242,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  min-height: 48px;
+  min-height: 38px;
   padding: 0 var(--space-lg);
   border: 1px solid rgba(168, 230, 0, 0.25);
   border-radius: var(--radius-full);
@@ -267,25 +267,25 @@ onMounted(() => {
 }
 
 .search__random-icon {
-  font-size: 1rem;
+  font-size: 0.8rem;
 }
 
 .search__form {
   display: flex;
   gap: var(--space-sm);
-  max-width: 640px;
+  max-width: 512px;
   margin-bottom: var(--space-lg);
 }
 
 .search__input {
   flex: 1;
-  min-height: 50px;
+  min-height: 40px;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
-  font-size: 1rem;
+  font-size: 0.8rem;
   outline: none;
   transition:
     border-color var(--transition-fast),
@@ -306,14 +306,14 @@ onMounted(() => {
   align-items: center;
   gap: var(--space-xs);
   justify-content: center;
-  min-width: 120px;
-  min-height: 50px;
+  min-width: 96px;
+  min-height: 40px;
   padding: var(--space-sm) var(--space-lg);
   background-color: var(--color-accent);
   color: var(--color-bg);
   border: none;
   border-radius: var(--radius-md);
-  font-size: 1rem;
+  font-size: 0.8rem;
   cursor: pointer;
   transition:
     background-color var(--transition-fast),
@@ -334,7 +334,7 @@ onMounted(() => {
 }
 
 .search__btn-icon {
-  font-size: 1.1rem;
+  font-size: 0.88rem;
 }
 
 .search__summary {
@@ -353,7 +353,7 @@ onMounted(() => {
 .search__summary-label {
   margin-bottom: var(--space-sm);
   color: var(--color-text-muted);
-  font-size: 0.8rem;
+  font-size: 0.64rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -368,7 +368,7 @@ onMounted(() => {
 .search__result-tag {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 32px;
   padding: 0 var(--space-md);
   border-radius: var(--radius-full);
   background: rgba(168, 230, 0, 0.12);
@@ -389,8 +389,8 @@ onMounted(() => {
 .search__related-tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 0.85rem;
+  gap: 0.4rem;
+  padding: 0.44rem 0.68rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background: var(--color-bg-elevated);
@@ -410,7 +410,7 @@ onMounted(() => {
 
 .search__summary-empty {
   color: var(--color-text-secondary);
-  font-size: 0.92rem;
+  font-size: 0.74rem;
 }
 
 .search__state {
@@ -423,7 +423,7 @@ onMounted(() => {
 }
 
 .search__state-icon {
-  font-size: 2.5rem;
+  font-size: 2rem;
   margin-bottom: var(--space-sm);
 }
 
@@ -453,18 +453,18 @@ onMounted(() => {
 .search__state-hint {
   color: var(--color-text-muted);
   opacity: 0.7;
-  font-size: 0.85rem;
+  font-size: 0.68rem;
   text-align: center;
 }
 
 .search__state--loading {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.72rem;
 }
 
 .search__spinner {
-  width: 24px;
-  height: 24px;
+  width: 19px;
+  height: 19px;
   border: 2px solid var(--color-border);
   border-top-color: var(--color-accent);
   border-radius: 50%;
@@ -496,7 +496,7 @@ onMounted(() => {
 }
 
 .search__retry-btn {
-  min-height: 44px;
+  min-height: 35px;
   margin-top: var(--space-sm);
   padding: 0 var(--space-lg);
   background: transparent;
@@ -504,7 +504,7 @@ onMounted(() => {
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.72rem;
   transition:
     border-color var(--transition-fast),
     color var(--transition-fast),
