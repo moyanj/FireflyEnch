@@ -4,7 +4,7 @@ import { suggestImageTags, uploadImage } from '@/api'
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
-const tags = ref('')
+const prompt = ref('')
 const previewUrl = ref('')
 
 // 注入父层的强制登出函数
@@ -19,13 +19,14 @@ const uploadError = ref('')
 const isUploading = ref(false)
 
 // ── AI 建议状态 ──
-type SuggestedTagItem = {
+type TagItem = {
   id: number
   value: string
-  enabled: boolean
 }
 
-const suggestedTags = ref<SuggestedTagItem[]>([])
+const manualTags = ref<TagItem[]>([])
+let manualTagId = 0
+const suggestedTags = ref<TagItem[]>([])
 let suggestedTagId = 0
 const isSuggesting = ref(false)
 const suggestError = ref('')
@@ -51,20 +52,22 @@ function uniqueTags(input: string[]): string[] {
   return normalized
 }
 
-function createSuggestedTagItems(input: string[]): SuggestedTagItem[] {
+function createSuggestedTagItems(input: string[]): TagItem[] {
   return uniqueTags(input).map(tag => ({
     id: ++suggestedTagId,
     value: tag,
-    enabled: true,
   }))
 }
 
-const mergedTagsPreview = computed(() => {
-  const manualTags = tags.value.split(',').map(tag => tag.trim())
-  const enabledSuggested = suggestedTags.value
-    .filter(tag => tag.enabled && tag.value.trim())
-    .map(tag => tag.value)
-  return uniqueTags([...manualTags, ...enabledSuggested])
+function createManualTag(value: string = ''): TagItem {
+  return {
+    id: ++manualTagId,
+    value,
+  }
+}
+
+const finalTagsPreview = computed(() => {
+  return uniqueTags(manualTags.value.map(tag => tag.value))
 })
 
 const uploadButtonLabel = computed(() => {
@@ -104,25 +107,35 @@ function resetUploadState() {
 
 function resetForNextUpload() {
   clearFileSelection()
-  tags.value = ''
+  prompt.value = ''
+  manualTags.value = []
 }
 
-// ── AI 建议 ──
-function normalizeSuggestedTag(item: SuggestedTagItem) {
+// ── 手动标签 ──
+function normalizeTag(item: TagItem) {
   item.value = item.value.trim().slice(0, 32)
 }
 
-function addSuggestedTag() {
-  suggestedTags.value = [
-    ...suggestedTags.value,
-    { id: ++suggestedTagId, value: '', enabled: true },
-  ]
+function addManualTag(value: string = '') {
+  manualTags.value = [...manualTags.value, createManualTag(value)]
 }
 
-function removeSuggestedTag(id: number) {
-  suggestedTags.value = suggestedTags.value.filter(tag => tag.id !== id)
+function removeManualTag(id: number) {
+  manualTags.value = manualTags.value.filter(tag => tag.id !== id)
 }
 
+function hasManualTag(value: string): boolean {
+  const target = value.trim().toLowerCase()
+  return manualTags.value.some(tag => tag.value.trim().toLowerCase() === target)
+}
+
+function appendSuggestedTag(value: string) {
+  const normalized = value.trim().slice(0, 32)
+  if (!normalized || hasManualTag(normalized)) return
+  addManualTag(normalized)
+}
+
+// ── AI 建议 ──
 async function handleSuggestTags() {
   if (!selectedFile.value) return
 
@@ -132,7 +145,7 @@ async function handleSuggestTags() {
   uploadError.value = ''
 
   try {
-    const res = await suggestImageTags(selectedFile.value)
+    const res = await suggestImageTags(selectedFile.value, prompt.value.trim())
     if (res.code === 200) {
       suggestedTags.value = createSuggestedTagItems(res.data.suggested_tags)
       suggestStatus.value = res.data.suggested_tags.length === 0 ? 'empty' : 'done'
@@ -161,7 +174,7 @@ async function handleUpload() {
   uploadMessage.value = ''
 
   try {
-    const res = await uploadImage(selectedFile.value, mergedTagsPreview.value)
+    const res = await uploadImage(selectedFile.value, finalTagsPreview.value)
     if (res.code === 201) {
       uploadSuccess.value = true
       uploadedImageUrl.value = res.data.url
@@ -188,7 +201,7 @@ async function handleUpload() {
     <!-- 页面标题 -->
     <div class="bu-page__header">
       <h1 class="bu-page__title">上传图片</h1>
-      <p class="bu-page__desc">选择图片，可选 AI 标签建议，然后上传至图库。</p>
+      <p class="bu-page__desc">先给 AI 提示词生成建议标签，再挑选或补充后上传至图库。</p>
     </div>
 
     <div class="bu-workbench">
@@ -216,10 +229,34 @@ async function handleUpload() {
 
       <!-- 右列：标签与上传 -->
       <div class="bu-workbench__right">
+        <!-- AI 提示词 -->
+        <div class="bu-field">
+          <label class="bu-label">给 AI 的提示词</label>
+          <textarea
+            v-model="prompt"
+            class="bu-input bu-textarea"
+            placeholder="可选：补充主体、风格、场景、角色名等提示，帮助 AI 更准地出标签"
+          ></textarea>
+        </div>
+
         <!-- 手动标签 -->
         <div class="bu-field">
           <label class="bu-label">手动标签</label>
-          <input v-model="tags" type="text" class="bu-input" placeholder="输入标签，用逗号分隔">
+          <div class="bu-ai-tags">
+            <div v-for="tag in manualTags" :key="tag.id" class="bu-ai-tag">
+              <input
+                v-model="tag.value"
+                type="text"
+                class="bu-ai-tag__input"
+                placeholder="输入标签"
+                @blur="normalizeTag(tag)"
+              >
+              <button type="button" class="bu-ai-tag__remove" @click="removeManualTag(tag.id)">✕</button>
+            </div>
+            <button type="button" class="bu-btn bu-btn--ghost bu-btn--compact" @click="addManualTag()">
+              + 新增标签
+            </button>
+          </div>
         </div>
 
         <!-- AI 建议区 -->
@@ -255,23 +292,17 @@ async function handleUpload() {
             </div>
           </div>
 
-          <!-- 编辑层 -->
-          <div v-if="suggestedTags.length > 0" class="bu-ai-tags">
-            <div v-for="tag in suggestedTags" :key="tag.id" class="bu-ai-tag">
-              <label class="bu-ai-tag__toggle">
-                <input v-model="tag.enabled" type="checkbox">
-              </label>
-              <input
-                v-model="tag.value"
-                type="text"
-                class="bu-ai-tag__input"
-                placeholder="编辑 AI 标签"
-                @blur="normalizeSuggestedTag(tag)"
-              >
-              <button type="button" class="bu-ai-tag__remove" @click="removeSuggestedTag(tag.id)">✕</button>
-            </div>
-            <button type="button" class="bu-btn bu-btn--ghost bu-btn--compact" @click="addSuggestedTag">
-              + 新增标签
+          <!-- 建议层 -->
+          <div v-if="suggestedTags.length > 0" class="bu-ai-suggestions">
+            <button
+              v-for="tag in suggestedTags"
+              :key="tag.id"
+              type="button"
+              class="bu-suggestion-chip"
+              :class="{ 'bu-suggestion-chip--selected': hasManualTag(tag.value) }"
+              @click="appendSuggestedTag(tag.value)"
+            >
+              {{ tag.value }}
             </button>
           </div>
         </div>
@@ -280,8 +311,8 @@ async function handleUpload() {
         <div class="bu-field">
           <label class="bu-label">最终上传标签</label>
           <div class="bu-tag-summary">
-            <span v-if="mergedTagsPreview.length" class="bu-tag-summary__content">
-              <span v-for="tag in mergedTagsPreview" :key="tag" class="bu-tag-chip">{{ tag }}</span>
+            <span v-if="finalTagsPreview.length" class="bu-tag-summary__content">
+              <span v-for="tag in finalTagsPreview" :key="tag" class="bu-tag-chip">{{ tag }}</span>
             </span>
             <span v-else class="bu-tag-summary__empty">当前未选择任何标签</span>
           </div>
@@ -464,6 +495,11 @@ async function handleUpload() {
   color: var(--terminal-text-dim);
 }
 
+.bu-textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
 /* ── AI 建议状态 ── */
 .bu-ai-status {
   min-height: 29px;
@@ -510,17 +546,9 @@ async function handleUpload() {
 
 .bu-ai-tag {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   gap: var(--space-sm);
   align-items: center;
-}
-
-.bu-ai-tag__toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 19px;
-  height: 19px;
 }
 
 .bu-ai-tag__input {
@@ -555,6 +583,37 @@ async function handleUpload() {
 .bu-ai-tag__remove:hover {
   color: var(--terminal-danger);
   border-color: var(--terminal-danger);
+}
+
+.bu-ai-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.bu-suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.26rem 0.54rem;
+  border: 1px solid var(--terminal-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--terminal-text);
+  font-size: 0.64rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.bu-suggestion-chip:hover {
+  border-color: var(--terminal-accent);
+  color: var(--terminal-accent);
+}
+
+.bu-suggestion-chip--selected {
+  border-color: var(--terminal-accent);
+  background-color: var(--terminal-accent-glow);
+  color: var(--terminal-accent);
 }
 
 /* ── 标签汇总 ── */

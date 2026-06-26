@@ -205,7 +205,7 @@ function handleReveal() {
 }
 
 .card__tag {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: var(--color-text-muted);
   text-decoration: none;
   padding: 2px var(--space-xs);

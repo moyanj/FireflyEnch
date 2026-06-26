@@ -343,7 +343,7 @@ async def is_image_file(filename: str) -> bool:
 # ==================== AI 自动标签 ====================
 
 
-async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
+async def generate_ai_tags(content: bytes, filename: str, prompt: str = "") -> list[str]:
     """调用 AI 服务自动提取图片标签（传缩略图以减少数据量）"""
     if not AI_ENABLED:
         return []
@@ -356,21 +356,27 @@ async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
     data_url = "data:image/webp;base64," + base64.b64encode(webp_bytes).decode("ascii")
 
     # 构建请求 payload
+    user_content: list[dict[str, Any]] = [
+        {
+            "type": "text",
+            "text": f"文件名：{filename}。请基于图片内容提取 8~14 个中文搜索关键词（标签）。",
+        }
+    ]
+    if prompt.strip():
+        user_content.append(
+            {
+                "type": "text",
+                "text": f"补充提示：{prompt.strip()[:200]}",
+            }
+        )
+    user_content.append({"type": "image_url", "image_url": {"url": data_url}})
+
     payload = {
         "model": AI_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": AI_PROMPT},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"文件名：{filename}。请基于图片内容提取 8~14 个中文搜索关键词（标签）。",
-                    },
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                ],
-            },
+            {"role": "user", "content": user_content},
         ],
     }
 
@@ -622,6 +628,7 @@ async def prepare_image_upload(
 @app.post("/api/images/suggest-tags")
 async def suggest_image_tags(
     image: UploadFile = File(...),
+    prompt: str = Form(""),
     _: bool = Depends(verify_appkey),
 ) -> JSONResponse:
     """为图片生成 AI 建议标签，不参与上传流程"""
@@ -635,7 +642,7 @@ async def suggest_image_tags(
     suggested_tags: list[str] = []
     if AI_ENABLED:
         try:
-            suggested_tags = await generate_ai_tags(content, image.filename)
+            suggested_tags = await generate_ai_tags(content, image.filename, prompt)
         except (httpx.HTTPError, HTTPException, ValueError, TimeoutError) as exc:
             logger.warning(
                 "AI 标签建议失败 filename={} error={}",

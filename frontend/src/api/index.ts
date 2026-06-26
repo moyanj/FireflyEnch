@@ -153,10 +153,12 @@ export async function prepareImageUpload(
 
 /** AI 建议标签 */
 export async function suggestImageTags(
-  file: File
+  file: File,
+  prompt: string = ''
 ): Promise<ApiResponse<AiTagSuggestionData>> {
   const formData = new FormData()
   formData.append('image', file)
+  formData.append('prompt', prompt)
 
   return request<AiTagSuggestionData>('/images/suggest-tags', withAdminAuth({
     method: 'POST',

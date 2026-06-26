@@ -362,7 +362,7 @@ onMounted(loadAllTags)
   color: var(--color-text-secondary);
   text-decoration: none;
   font-family: inherit;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -417,7 +417,7 @@ onMounted(loadAllTags)
   display: inline-flex;
   padding: 2px 8px;
   border-radius: var(--radius-sm);
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   border: 1px solid var(--color-border);
   color: var(--color-text-muted);
 }
