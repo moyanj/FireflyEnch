@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import contextlib
 from io import BytesIO
 import json
 import os
@@ -20,6 +21,7 @@ from pydantic import BaseModel
 import aiofiles
 import httpx
 import uvicorn
+from loguru import logger
 from fastapi import (
     FastAPI,
     UploadFile,
@@ -52,7 +54,14 @@ from config import (
     CAPTCHA_EXPIRE_SECONDS,
     CAPTCHA_LENGTH,
     CLEANUP_INTERVAL_SECONDS,
+    DATA_PATH,
+    DB_CONNECTION,
+    DB_TYPE,
     LOGIN_TOKEN_EXPIRE_SECONDS,
+    LOG_LEVEL,
+    LOG_PATH,
+    LOG_RETENTION,
+    LOG_ROTATION,
     MAX_TAGS,
     PAGE_SIZE,
     PREPARED_UPLOAD_EXPIRE_SECONDS,
@@ -63,6 +72,7 @@ from config import (
     UPLOAD_FOLDER,
     TEMP_UPLOAD_FOLDER,
 )
+from logging_utils import build_startup_log_context, configure_logging
 
 # 导入 NSFW 检测器
 from nsfw_detector import NsfwDetector
@@ -77,6 +87,13 @@ from utils import (
     get_safe_path,
     normalize_tags,
     parse_tags,
+)
+
+configure_logging(
+    level=LOG_LEVEL,
+    log_path=LOG_PATH,
+    rotation=LOG_ROTATION,
+    retention=LOG_RETENTION,
 )
 
 # ==================== 内存存储 ====================
@@ -133,22 +150,52 @@ async def cleanup_expired_auth_data() -> None:
         for token in expired_tokens:
             del login_tokens[token]
 
+        if expired_captcha_ids or expired_tokens:
+            logger.info(
+                "清理认证状态 captcha_removed={} token_removed={}",
+                len(expired_captcha_ids),
+                len(expired_tokens),
+            )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时创建必要目录，初始化数据库"""
-    asyncio.create_task(
+    startup_context = build_startup_log_context(
+        app_name=APP_NAME,
+        app_port=APP_PORT,
+        data_path=DATA_PATH,
+        upload_folder=UPLOAD_FOLDER,
+        thumbnail_folder=THUMBNAIL_FOLDER,
+        temp_upload_folder=TEMP_UPLOAD_FOLDER,
+        db_type=DB_TYPE,
+        db_connection=DB_CONNECTION,
+        ai_enabled=AI_ENABLED,
+        log_level=LOG_LEVEL,
+        log_path=LOG_PATH,
+    )
+    logger.info("应用启动 {}", startup_context)
+
+    cleanup_upload_task = asyncio.create_task(
         cleanup_expired_prepared_uploads(
             prepared_uploads, TEMP_UPLOAD_FOLDER, PREPARED_UPLOAD_EXPIRE_SECONDS
         )
     )
-    asyncio.create_task(cleanup_expired_auth_data())
+    cleanup_auth_task = asyncio.create_task(cleanup_expired_auth_data())
     async with RegisterTortoise(
         app,
         config=TORTOISE_ORM,
         generate_schemas=True,
     ):
-        yield
+        logger.info("数据库初始化完成")
+        try:
+            yield
+        finally:
+            for task in (cleanup_upload_task, cleanup_auth_task):
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+            logger.info("应用关闭完成")
 
 
 # ==================== 创建 FastAPI 应用 ====================
@@ -168,6 +215,42 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """记录请求摘要与未处理异常。"""
+    request_id = uuid.uuid4().hex[:8]
+    start = time.perf_counter()
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.exception(
+            "请求异常 rid={} method={} path={} client={} duration_ms={}",
+            request_id,
+            request.method,
+            request.url.path,
+            request.client.host if request.client else "-",
+            duration_ms,
+        )
+        raise
+
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    level = "WARNING" if response.status_code >= 400 else "INFO"
+    logger.log(
+        level,
+        "请求 rid={} method={} path={} status={} client={} duration_ms={}",
+        request_id,
+        request.method,
+        request.url.path,
+        response.status_code,
+        request.client.host if request.client else "-",
+        duration_ms,
+    )
+    response.headers["X-Request-Id"] = request_id
+    return response
 
 
 # ==================== 工具函数 ====================
@@ -308,7 +391,9 @@ async def generate_ai_tags(content: bytes, filename: str) -> list[str]:
     # 解析响应，提取标签
     body = response.json()
     content_text = body.get("choices", [{}])[0].get("message", {}).get("content", "")
-    return extract_ai_tags(content_text)[:AI_MAX_TAGS]
+    tags = extract_ai_tags(content_text)[:AI_MAX_TAGS]
+    logger.info("AI 标签生成完成 filename={} tag_count={}", filename, len(tags))
+    return tags
 
 
 def extract_ai_tags(content_text: str) -> list[str]:
@@ -357,6 +442,11 @@ async def verify_appkey(
         if token in login_tokens:
             return True
 
+    logger.warning(
+        "鉴权失败 has_api_key={} has_bearer={}",
+        candidate is not None,
+        bool(authorization),
+    )
     raise HTTPException(status_code=401, detail="无权限")
 
 
@@ -385,6 +475,11 @@ async def finalize_upload(
     # 检查图片是否重复（基于感知哈希）
     duplicate = await Image.check_duplicate(*img_hash)
     if duplicate:
+        logger.warning(
+            "拦截重复上传 original_filename={} duplicate_id={}",
+            original_filename,
+            duplicate,
+        )
         raise HTTPException(status_code=409, detail=f"疑似重复图片: {duplicate}")
 
     # 保存文件（以 SHA1 哈希命名）
@@ -406,6 +501,14 @@ async def finalize_upload(
         "nsfw": new_image.nsfw,
         "nsfw_score": new_image.nsfw_score,
     }
+    logger.info(
+        "图片入库完成 image_id={} filename={} tag_count={} nsfw={} nsfw_score={}",
+        new_image.id,
+        filename,
+        len(new_image.tags),
+        new_image.nsfw,
+        new_image.nsfw_score,
+    )
     return jsonify(result, "上传成功", 201)
 
 
@@ -467,6 +570,7 @@ async def login(
     # 生成 token
     token = secrets.token_urlsafe(32)
     login_tokens[token] = time.time()
+    logger.info("登录成功 active_tokens={}", len(login_tokens))
     return jsonify({"token": token}, "登录成功")
 
 
@@ -505,6 +609,12 @@ async def prepare_image_upload(
         "created_at": time.time(),
     }
 
+    logger.info(
+        "创建预上传 token={} original_filename={} size_bytes={}",
+        token,
+        image.filename,
+        len(content),
+    )
     return jsonify({"upload_token": token})
 
 
@@ -525,7 +635,12 @@ async def suggest_image_tags(
     if AI_ENABLED:
         try:
             suggested_tags = await generate_ai_tags(content, image.filename)
-        except (httpx.HTTPError, HTTPException, ValueError):
+        except (httpx.HTTPError, HTTPException, ValueError) as exc:
+            logger.warning(
+                "AI 标签建议失败 filename={} error={}",
+                image.filename,
+                exc,
+            )
             suggested_tags = []
 
     return jsonify({"suggested_tags": suggested_tags})
@@ -552,6 +667,12 @@ async def commit_prepared_upload(
         content = await file.read()
 
     try:
+        logger.info(
+            "提交预上传 token={} original_filename={} tag_input={}",
+            upload_token,
+            prepared["original_filename"],
+            tags,
+        )
         response = await finalize_upload(
             request,
             content,
@@ -713,6 +834,7 @@ async def get_image(image_id: int):
     image = await Image.get_by_id(image_id)
     if not image:
         raise HTTPException(status_code=404, detail="图片未找到")
+
     return jsonify(image.to_dict())
 
 
@@ -765,6 +887,7 @@ async def delete_image(
         os.remove(thumbnail_path)
 
     await Image.delete_image(image_id)
+    logger.info("删除图片 image_id={} filename={}", image_id, image.filename)
     return jsonify(None, "图片删除成功", 204)
 
 
@@ -799,6 +922,12 @@ async def update_image(
     if parsed_tags is not None:
         clear_tag_cache()
 
+    logger.info(
+        "更新图片 image_id={} tags_updated={} nsfw_updated={}",
+        image_id,
+        parsed_tags is not None,
+        body.nsfw is not None if body else False,
+    )
     return jsonify(msg="完成")
 
 
@@ -806,6 +935,7 @@ async def update_image(
 async def clear_cache(_: bool = Depends(verify_appkey)) -> JSONResponse:
     """清除缓存"""
     clear_tag_cache()
+    logger.info("标签缓存已清除")
     return jsonify(None, "缓存已清除")
 
 
@@ -835,11 +965,14 @@ async def static_file(path: str) -> FileResponse:
 def main():
     """启动应用"""
     multiprocessing.cpu_count()
+    logger.info("启动 Uvicorn host=0.0.0.0 port={}", APP_PORT)
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
         port=APP_PORT,
         reload=False,
+        access_log=False,
+        log_config=None,
     )
 
 

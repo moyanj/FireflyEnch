@@ -37,7 +37,7 @@ docker compose up -d --build
 默认 Docker 部署使用 MySQL，数据库数据保存在 `mysql_data` volume 中。
 当前 Docker 部署只挂载 `./rdata/data` 到容器内的数据目录。应用配置优先走环境变量，不再依赖把 `config.py` 挂进容器。
 
-常用环境变量包括 `APP_PORT`、`APP_KEY`、`DB_TYPE`、`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME`、`AI_ENABLED`、`AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`DATA_PATH`、`UPLOAD_FOLDER`、`THUMBNAIL_FOLDER`、`TEMP_UPLOAD_FOLDER`。
+常用环境变量包括 `APP_PORT`、`SECRET_KEY`、`DB_TYPE`、`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME`、`AI_ENABLED`、`AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`DATA_PATH`、`UPLOAD_FOLDER`、`THUMBNAIL_FOLDER`、`TEMP_UPLOAD_FOLDER`、`LOG_LEVEL`、`LOG_PATH`、`LOG_ROTATION`、`LOG_RETENTION`。
 
 单独构建镜像：
 
@@ -48,15 +48,17 @@ docker run -d --name fireflyench -p 8896:8896 -v $(pwd)/data:/moyan/data firefly
 
 ## 配置
 
-应用配置位于 `config.py`，主要配置项：
+应用配置优先由环境变量驱动，`config.py` 只负责读取默认值。主要配置项：
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | `APP_PORT` | 8896 | 服务端口 |
-| `APP_KEY` | 12345678 | API 密钥 |
+| `SECRET_KEY` | 12345678 | API 密钥 |
 | `PAGE_SIZE` | 20 | 每页显示数量 |
 | `AI_ENABLED` | True | 是否启用 AI 自动标签 |
 | `AI_BASE_URL` | http://127.0.0.1:8350/v1 | AI 服务地址 |
+| `LOG_LEVEL` | INFO | 日志级别 |
+| `LOG_PATH` | `./data/logs/app.log` | 应用日志文件路径 |
 
 ## 技术栈
 

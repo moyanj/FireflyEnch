@@ -54,6 +54,7 @@ def env_size(name: str, default: tuple[int, int]) -> tuple[int, int]:
 APP_NAME = env_str("APP_NAME", "FireflyEnch")
 APP_PORT = env_int("APP_PORT", 8896)
 MAX_TAGS = env_int("MAX_TAGS", 25)
+LOG_LEVEL = env_str("LOG_LEVEL", "INFO")
 
 # ==================== 存储配置 ====================
 
@@ -61,6 +62,9 @@ DATA_PATH = os.path.abspath(env_str("DATA_PATH", "./data"))
 UPLOAD_FOLDER = env_str("UPLOAD_FOLDER", os.path.join(DATA_PATH, "uploads"))
 DB_FILE = env_str("DB_FILE", os.path.join(DATA_PATH, "data.db"))
 SECRET_KEY = env_str("SECRET_KEY", "12345678")
+LOG_PATH = env_str("LOG_PATH", os.path.join(DATA_PATH, "logs", "app.log"))
+LOG_ROTATION = env_str("LOG_ROTATION", "10 MB")
+LOG_RETENTION = env_str("LOG_RETENTION", "7 days")
 
 # ==================== 分页和缩略图 ====================
 

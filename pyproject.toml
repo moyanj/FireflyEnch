@@ -18,6 +18,7 @@ dependencies = [
     "captcha>=0.7.1",
     "imagehash>=4.3.1",
     "httpx>=0.28.0",
+    "loguru>=0.7.2",
     "onnxruntime>=1.27.0",
     "numpy>=2.4.6",
     "aiomysql>=0.2.0",
