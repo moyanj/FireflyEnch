@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Image } from '@/api/types'
 import ImageCard from './ImageCard.vue'
 
-defineProps<{
+const props = defineProps<{
   images: Image[]
   loading?: boolean
   hasMore?: boolean
@@ -11,20 +12,79 @@ defineProps<{
 defineEmits<{
   loadMore: []
 }>()
+
+const galleryRef = ref<HTMLElement | null>(null)
+const columnCount = ref(1)
+
+let resizeObserver: ResizeObserver | null = null
+
+function getMinColumnWidth(width: number): number {
+  if (width <= 480) return width
+  if (width <= 768) return 160
+  if (width <= 1024) return 184
+  return 208
+}
+
+function updateColumnCount(width: number) {
+  const minColumnWidth = getMinColumnWidth(width)
+  const nextCount = width <= 480
+    ? 1
+    : Math.max(1, Math.floor((width + 16) / (minColumnWidth + 16)))
+
+  columnCount.value = nextCount
+}
+
+const imageColumns = computed(() => {
+  const columns = Array.from({ length: columnCount.value }, () => [] as Image[])
+
+  props.images.forEach((image, index) => {
+    columns[index % columnCount.value].push(image)
+  })
+
+  return columns
+})
+
+onMounted(() => {
+  if (!galleryRef.value) return
+
+  updateColumnCount(galleryRef.value.clientWidth)
+
+  resizeObserver = new ResizeObserver((entries) => {
+    const entry = entries[0]
+    if (!entry) return
+    updateColumnCount(entry.contentRect.width)
+  })
+
+  resizeObserver.observe(galleryRef.value)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
 </script>
 
 <template>
-  <div class="gallery">
-    <TransitionGroup name="gallery-item" tag="div" class="gallery__grid">
+  <div ref="galleryRef" class="gallery">
+    <div
+      class="gallery__grid"
+      :style="{ '--gallery-columns': String(columnCount) }"
+    >
       <div
-        v-for="(image, index) in images"
-        :key="image.id"
-        class="gallery__item"
-        :style="{ animationDelay: `${Math.min(index % 20, 10) * 50}ms` }"
+        v-for="(column, columnIndex) in imageColumns"
+        :key="`column-${columnIndex}`"
+        class="gallery__column"
       >
-        <ImageCard :image="image" />
+        <div
+          v-for="(image, index) in column"
+          :key="image.id"
+          class="gallery__item"
+          :style="{ animationDelay: `${Math.min((columnIndex + index) % 20, 10) * 50}ms` }"
+        >
+          <ImageCard :image="image" />
+        </div>
       </div>
-    </TransitionGroup>
+    </div>
 
     <!-- Loading indicator -->
     <div v-if="loading" class="gallery__loading">
@@ -58,36 +118,20 @@ defineEmits<{
 
 <style scoped>
 .gallery__grid {
-  column-width: 208px;
+  display: grid;
+  grid-template-columns: repeat(var(--gallery-columns), minmax(0, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.gallery__column {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-md);
 }
 
 .gallery__item {
-  break-inside: avoid;
-  margin-bottom: var(--space-md);
   animation: fade-up 0.4s ease both;
-}
-
-.gallery__item:last-child {
-  margin-bottom: 0;
-}
-
-@media (max-width: 1024px) {
-  .gallery__grid {
-    column-width: 184px;
-  }
-}
-
-@media (max-width: 768px) {
-  .gallery__grid {
-    column-width: 160px;
-  }
-}
-
-@media (max-width: 480px) {
-  .gallery__grid {
-    column-width: 100%;
-  }
 }
 
 @keyframes fade-up {
@@ -99,25 +143,6 @@ defineEmits<{
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-/* Transition group animations */
-.gallery-item-enter-active {
-  transition: all 0.4s ease;
-}
-
-.gallery-item-leave-active {
-  transition: all 0.3s ease;
-}
-
-.gallery-item-enter-from {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.gallery-item-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
 }
 
 /* Loading spinner */

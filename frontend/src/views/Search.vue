@@ -171,11 +171,8 @@ onMounted(() => {
   <div class="search">
     <section class="search__hero">
       <div class="search__hero-copy">
-        <p class="search__eyebrow">Structured Tag Search</p>
-        <h1 class="search__title">把标签搜索变成可组合查询。</h1>
-        <p class="search__desc">
-          只按标签匹配，不做联想。空格默认 OR，<code>+</code> 是 AND，<code>-</code> 是 NOT，普通词也会匹配更长标签。
-        </p>
+        <p class="search__eyebrow">Tag Explorer</p>
+        <h1 class="search__title">溯流而上，掘尽万象。</h1>
       </div>
 
       <button class="search__random" type="button" :disabled="randomPending" @click="jumpToRandomImage">
@@ -185,24 +182,13 @@ onMounted(() => {
     </section>
 
     <form class="search__form" @submit.prevent="submitSearch">
-      <input
-        v-model="inputQuery"
-        type="search"
-        class="search__input"
-        placeholder="例如：白发 +女仆 -r18"
-        aria-label="搜索标签"
-      >
+      <input v-model="inputQuery" type="search" class="search__input" placeholder="例如：白发 +女仆 -r18" aria-label="搜索标签">
       <button type="submit" class="search__btn" :disabled="isLoading || isLoadingMore">
         <span class="search__btn-icon">✦</span>
         <span>搜索</span>
       </button>
-      <button
-        v-if="inputQuery || hasSearched"
-        type="button"
-        class="search__ghost-btn"
-        :disabled="isLoading || isLoadingMore"
-        @click="clearSearch"
-      >
+      <button v-if="inputQuery || hasSearched" type="button" class="search__ghost-btn"
+        :disabled="isLoading || isLoadingMore" @click="clearSearch">
         清空
       </button>
     </form>
@@ -234,13 +220,8 @@ onMounted(() => {
       <span>搜索中...</span>
     </div>
 
-    <ImageGallery
-      v-if="searchState === 'results'"
-      :images="images"
-      :loading="isLoadingMore"
-      :has-more="hasMore"
-      @load-more="loadMore"
-    />
+    <ImageGallery v-if="searchState === 'results'" :images="images" :loading="isLoadingMore" :has-more="hasMore"
+      @load-more="loadMore" />
 
     <div v-if="searchState === 'empty'" class="search__state search__state--empty">
       <span class="search__state-icon">∅</span>
