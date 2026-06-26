@@ -78,7 +78,7 @@ from logging_utils import build_startup_log_context, configure_logging
 from nsfw_detector import NsfwDetector
 
 # 导入数据模型和工具函数
-from models import Image, clear_tag_cache
+from models import Image, clear_phash_index_cache, clear_tag_cache
 from utils import (
     async_compute_hashes,
     async_create_thumbnail_bytes,
@@ -343,7 +343,9 @@ async def is_image_file(filename: str) -> bool:
 # ==================== AI 自动标签 ====================
 
 
-async def generate_ai_tags(content: bytes, filename: str, prompt: str = "") -> list[str]:
+async def generate_ai_tags(
+    content: bytes, filename: str, prompt: str = ""
+) -> list[str]:
     """调用 AI 服务自动提取图片标签（传缩略图以减少数据量）"""
     if not AI_ENABLED:
         return []
@@ -355,28 +357,26 @@ async def generate_ai_tags(content: bytes, filename: str, prompt: str = "") -> l
     webp_bytes = await async_create_thumbnail_bytes(content)
     data_url = "data:image/webp;base64," + base64.b64encode(webp_bytes).decode("ascii")
 
-    # 构建请求 payload
-    user_content: list[dict[str, Any]] = [
-        {
-            "type": "text",
-            "text": f"文件名：{filename}。请基于图片内容提取 8~14 个中文搜索关键词（标签）。",
-        }
-    ]
+    # 构建请求 payload，固定沿用 AI_PROMPT 作为 system prompt
+    system_prompt = AI_PROMPT
     if prompt.strip():
-        user_content.append(
-            {
-                "type": "text",
-                "text": f"补充提示：{prompt.strip()[:200]}",
-            }
-        )
-    user_content.append({"type": "image_url", "image_url": {"url": data_url}})
+        system_prompt = f"{AI_PROMPT}\n\n补充提示（仅作参考，不要偏离原始规则）：{prompt.strip()[:200]}"
 
     payload = {
         "model": AI_MODEL,
         "response_format": {"type": "json_object"},
         "messages": [
-            {"role": "system", "content": AI_PROMPT},
-            {"role": "user", "content": user_content},
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"文件名：{filename}。请基于图片内容提取 8~14 个中文搜索关键词（标签）。",
+                    },
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            },
         ],
     }
 
@@ -923,18 +923,21 @@ async def update_image(
         image.tags = parsed_tags
 
     # 更新 NSFW 状态
-    if body and body.nsfw is not None:
+    nsfw_changed = body.nsfw is not None if body else False
+    if nsfw_changed:
         image.nsfw = body.nsfw
 
     await image.save()
     if parsed_tags is not None:
         clear_tag_cache()
+    if parsed_tags is not None or nsfw_changed:
+        clear_phash_index_cache()
 
     logger.info(
         "更新图片 image_id={} tags_updated={} nsfw_updated={}",
         image_id,
         parsed_tags is not None,
-        body.nsfw is not None if body else False,
+        nsfw_changed,
     )
     return jsonify(msg="完成")
 

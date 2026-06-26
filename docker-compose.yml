@@ -1,26 +1,29 @@
 services:
   fireflyench:
-    build: .
+    build:
+      context: .
+    image: fireflyench:latest
     container_name: fireflyench
     restart: unless-stopped
-    ports:
-      - "8896:8896"
-    volumes:
-      - ./rdata:/moyan/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
       TZ: Asia/Shanghai
+      APP_PORT: ${APP_PORT:-8896}
+      DATA_PATH: /moyan/data
       DB_TYPE: mysql
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: fireflyench
       DB_PASSWORD: fireflyench_password
       DB_NAME: fireflyench
-      APP_PORT: 8896
-    depends_on:
-      mysql:
-        condition: service_healthy
-    env_file:
-      - .env
+    ports:
+      - "${APP_PORT:-8896}:${APP_PORT:-8896}"
+    volumes:
+      - ./rdata:/moyan/data
 
   mysql:
     image: mysql:8.0

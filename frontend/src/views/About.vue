@@ -51,7 +51,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-2xl);
+  padding: clamp(20px, 5vw, 56px);
   position: relative;
   overflow: hidden;
 }
@@ -86,12 +86,12 @@ onMounted(() => {
 
 .about__card {
   text-align: center;
-  max-width: 480px;
+  max-width: 620px;
   width: 100%;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-xl);
-  padding: var(--space-3xl);
+  padding: clamp(28px, 5vw, 56px);
   position: relative;
   z-index: 1;
   box-shadow: var(--shadow-lg);
@@ -104,7 +104,7 @@ onMounted(() => {
 }
 
 .about__logo-img {
-  width: 128px;
+  width: 156px;
   height: auto;
   margin-bottom: var(--space-md);
   filter: drop-shadow(0 0 20px var(--color-accent-glow));
@@ -116,14 +116,14 @@ onMounted(() => {
 }
 
 .about__logo-note {
-  font-size: 0.56rem;
+  font-size: 0.74rem;
   color: var(--color-text-muted);
   font-style: italic;
 }
 
 .about__title {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: clamp(2.2rem, 6vw, 3rem);
   margin-bottom: var(--space-sm);
   color: var(--color-text);
   letter-spacing: -0.02em;
@@ -131,7 +131,7 @@ onMounted(() => {
 }
 
 .about__version {
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: var(--color-accent);
   margin-bottom: var(--space-xl);
   font-weight: 500;
@@ -139,7 +139,7 @@ onMounted(() => {
 
 .about__slogan {
   font-family: var(--font-display);
-  font-size: 0.96rem;
+  font-size: 1.16rem;
   color: var(--color-text-secondary);
   margin-bottom: var(--space-2xl);
   line-height: 1.6;
@@ -154,7 +154,7 @@ onMounted(() => {
 
 .about__link {
   color: var(--color-accent);
-  font-size: 0.8rem;
+  font-size: 0.96rem;
   font-weight: 500;
   padding: var(--space-sm) var(--space-lg);
   border: 1px solid var(--color-accent);
@@ -171,7 +171,7 @@ onMounted(() => {
 
 .about__meta {
   color: var(--color-text-muted);
-  font-size: 0.68rem;
+  font-size: 0.84rem;
   padding-top: var(--space-lg);
   border-top: 1px solid var(--color-border-subtle);
 }
@@ -196,36 +196,36 @@ onMounted(() => {
   }
 
   .about__card {
-    max-width: 400px;
+    max-width: 560px;
     padding: var(--space-2xl);
   }
 
   .about__title {
-    font-size: 1.6rem;
+    font-size: 2rem;
   }
 
   .about__logo-img {
-    width: 112px;
+    width: 136px;
   }
 }
 
 @media (max-width: 768px) {
   .about {
     padding: var(--space-lg);
-    min-height: 60vh;
+    min-height: 100dvh;
   }
 
   .about__card {
-    max-width: 360px;
+    max-width: none;
     padding: var(--space-xl);
   }
 
   .about__title {
-    font-size: 1.44rem;
+    font-size: 1.9rem;
   }
 
   .about__slogan {
-    font-size: 0.8rem;
+    font-size: 1rem;
   }
 
   .about__links {
@@ -240,29 +240,35 @@ onMounted(() => {
 
 @media (max-width: 480px) {
   .about {
-    padding: var(--space-md);
-    min-height: 50vh;
+    padding: 14px;
+    min-height: 100dvh;
   }
 
   .about__card {
-    padding: var(--space-lg);
+    padding: 22px 18px;
     border-radius: var(--radius-lg);
   }
 
   .about__title {
-    font-size: 1.2rem;
+    font-size: 1.68rem;
   }
 
   .about__logo-img {
-    width: 96px;
+    width: 120px;
   }
 
   .about__slogan {
-    font-size: 0.72rem;
+    font-size: 0.92rem;
   }
 
   .about__meta {
-    font-size: 0.6rem;
+    font-size: 0.84rem;
+  }
+
+  .about__version,
+  .about__link,
+  .about__logo-note {
+    font-size: 0.84rem;
   }
 }
 </style>

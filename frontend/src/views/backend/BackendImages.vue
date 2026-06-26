@@ -404,7 +404,8 @@ watch([nsfwFilter, sortBy], () => {
 
 <style scoped>
 .bi-page {
-  max-width: 960px;
+  width: 100%;
+  max-width: 1360px;
 }
 
 .bi-page__header {
@@ -413,19 +414,19 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-page__title {
   font-family: var(--font-display);
-  font-size: 1.08rem;
+  font-size: 1.42rem;
   color: var(--terminal-text-bright);
   margin-bottom: var(--space-xs);
 }
 
 .bi-page__desc {
   color: var(--terminal-text-dim);
-  font-size: 0.68rem;
+  font-size: 0.9rem;
 }
 
 /* ── 查询区 ── */
 .bi-query {
-  padding: var(--space-md);
+  padding: var(--space-lg);
   background-color: var(--terminal-surface);
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-md);
@@ -459,7 +460,7 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-label {
-  font-size: 0.60rem;
+  font-size: 0.76rem;
   color: var(--terminal-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -467,12 +468,12 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-input,
 .bi-select {
-  padding: 0.48rem 0.68rem;
+  padding: 0.74rem 0.9rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
-  font-size: 0.68rem;
+  font-size: 0.88rem;
   transition: border-color var(--transition-fast);
 }
 
@@ -489,13 +490,13 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-textarea {
   width: 100%;
-  padding: 0.48rem 0.68rem;
+  padding: 0.74rem 0.9rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
   font-family: var(--font-body);
-  font-size: 0.68rem;
+  font-size: 0.88rem;
   resize: vertical;
 }
 
@@ -510,7 +511,7 @@ watch([nsfwFilter, sortBy], () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-sm);
-  font-size: 0.64rem;
+  font-size: 0.82rem;
   color: var(--terminal-text-dim);
 }
 
@@ -522,7 +523,7 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-error {
   color: var(--terminal-danger);
-  font-size: 0.68rem;
+  font-size: 0.86rem;
   padding: var(--space-sm) 0;
 }
 
@@ -534,7 +535,7 @@ watch([nsfwFilter, sortBy], () => {
 .bi-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.68rem;
+  font-size: 0.84rem;
 }
 
 .bi-table th {
@@ -544,7 +545,7 @@ watch([nsfwFilter, sortBy], () => {
   font-weight: 500;
   border-bottom: 1px solid var(--terminal-border);
   white-space: nowrap;
-  font-size: 0.60rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -561,12 +562,12 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-table__th--thumb {
-  width: 45px;
+  width: 64px;
 }
 
 .bi-thumb {
-  width: 38px;
-  height: 38px;
+  width: 56px;
+  height: 56px;
   object-fit: cover;
   border-radius: var(--radius-sm);
   border: 1px solid var(--terminal-border);
@@ -586,23 +587,23 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-tag-chip {
   display: inline-flex;
-  padding: 1px 5px;
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
   background-color: var(--terminal-accent-glow);
   color: var(--terminal-accent);
-  font-size: 0.58rem;
+  font-size: 0.74rem;
   white-space: nowrap;
 }
 
 .bi-tag-more {
-  font-size: 0.58rem;
+  font-size: 0.74rem;
   color: var(--terminal-text-dim);
 }
 
 .bi-table__time {
   white-space: nowrap;
   color: var(--terminal-text-dim);
-  font-size: 0.64rem;
+  font-size: 0.78rem;
 }
 
 .bi-table__actions {
@@ -615,7 +616,7 @@ watch([nsfwFilter, sortBy], () => {
   display: inline-flex;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-size: 0.58rem;
+  font-size: 0.72rem;
   background-color: var(--terminal-surface);
   border: 1px solid var(--terminal-border);
   color: var(--terminal-text-dim);
@@ -632,10 +633,10 @@ watch([nsfwFilter, sortBy], () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.44rem 0.68rem;
+  padding: 0.64rem 0.9rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-size: 0.68rem;
+  font-size: 0.86rem;
   cursor: pointer;
   font-family: var(--font-body);
   transition: all var(--transition-fast);
@@ -685,8 +686,8 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-btn--compact {
-  padding: 0.32rem 0.48rem;
-  font-size: 0.62rem;
+  padding: 0.46rem 0.64rem;
+  font-size: 0.78rem;
 }
 
 /* ── 空状态 ── */
@@ -713,7 +714,7 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-pagination__info {
-  font-size: 0.68rem;
+  font-size: 0.84rem;
   color: var(--terminal-text-dim);
 }
 
@@ -745,7 +746,7 @@ watch([nsfwFilter, sortBy], () => {
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(384px, 90vw);
+  width: min(460px, 94vw);
   background-color: var(--terminal-surface);
   border-left: 1px solid var(--terminal-border);
   z-index: calc(var(--z-modal) + 1);
@@ -759,7 +760,7 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-drawer__content {
-  padding: var(--space-lg);
+  padding: var(--space-xl);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
@@ -773,13 +774,13 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-drawer__title {
   font-family: var(--font-display);
-  font-size: 0.92rem;
+  font-size: 1.14rem;
   color: var(--terminal-text-bright);
 }
 
 .bi-drawer__close {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   background: transparent;
@@ -787,7 +788,7 @@ watch([nsfwFilter, sortBy], () => {
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
   cursor: pointer;
-  font-size: 0.68rem;
+  font-size: 0.88rem;
   transition: all var(--transition-fast);
 }
 
@@ -813,7 +814,7 @@ watch([nsfwFilter, sortBy], () => {
 .bi-drawer__meta-row {
   display: flex;
   justify-content: space-between;
-  font-size: 0.68rem;
+  font-size: 0.84rem;
   color: var(--terminal-text);
 }
 
@@ -835,8 +836,8 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-toggle__slider {
   position: relative;
-  width: 32px;
-  height: 18px;
+  width: 40px;
+  height: 22px;
   background-color: var(--terminal-border);
   border-radius: 9px;
   transition: background-color var(--transition-fast);
@@ -845,10 +846,10 @@ watch([nsfwFilter, sortBy], () => {
 .bi-toggle__slider::after {
   content: '';
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 13px;
-  height: 13px;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
   background-color: var(--terminal-text-bright);
   border-radius: 50%;
   transition: transform var(--transition-fast);
@@ -863,7 +864,7 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-toggle__label {
-  font-size: 0.62rem;
+  font-size: 0.8rem;
   font-family: var(--font-display);
   color: var(--terminal-text-dim);
   min-width: 22px;
@@ -886,7 +887,7 @@ watch([nsfwFilter, sortBy], () => {
 }
 
 .bi-drawer__save-msg {
-  font-size: 0.64rem;
+  font-size: 0.8rem;
   color: var(--terminal-success);
 }
 
@@ -897,7 +898,7 @@ watch([nsfwFilter, sortBy], () => {
 
 .bi-drawer__confirm-text {
   color: var(--terminal-danger);
-  font-size: 0.68rem;
+  font-size: 0.84rem;
   margin-bottom: var(--space-sm);
 }
 
@@ -908,6 +909,14 @@ watch([nsfwFilter, sortBy], () => {
 
 /* ── 响应式 ── */
 @media (max-width: 768px) {
+  .bi-page__title {
+    font-size: 1.28rem;
+  }
+
+  .bi-page__desc {
+    font-size: 0.86rem;
+  }
+
   .bi-query__primary {
     grid-template-columns: 1fr;
   }
@@ -915,6 +924,26 @@ watch([nsfwFilter, sortBy], () => {
   .bi-query__filters {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .bi-query {
+    padding: var(--space-md);
+  }
+
+  .bi-table {
+    font-size: 0.8rem;
+  }
+
+  .bi-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .bi-btn,
+  .bi-input,
+  .bi-select,
+  .bi-textarea {
+    font-size: 0.84rem;
   }
 }
 </style>

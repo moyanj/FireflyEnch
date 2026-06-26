@@ -1,11 +1,10 @@
-import imagehash
 import time
 from tortoise.models import Model
 from tortoise import fields, connections
 from typing import List, Optional, Dict, Any, Tuple
 
 import config
-from utils import compute_perceptual_hash, compute_quick_hash, phash_distance
+from phash_index import PhashBKTree, PhashRecord, phash_hex_to_int
 
 
 def _is_json_filter_supported() -> bool:
@@ -23,12 +22,19 @@ def _is_json_filter_supported() -> bool:
 # 标签缓存：存储 (tags_list, expire_time)
 _tag_cache: Optional[Tuple[List[str], float]] = None
 TAG_CACHE_TTL = 300  # 缓存 5 分钟
+_phash_index_cache: Optional[PhashBKTree] = None
 
 
 def clear_tag_cache() -> None:
     """清除标签缓存"""
     global _tag_cache
     _tag_cache = None
+
+
+def clear_phash_index_cache() -> None:
+    """清除感知哈希 BK-tree 缓存"""
+    global _phash_index_cache
+    _phash_index_cache = None
 
 
 class Image(Model):
@@ -228,6 +234,7 @@ class Image(Model):
             nsfw_score=nsfw_score,
         )
         clear_tag_cache()
+        cls._append_to_phash_index_cache(image)
         return image
 
     @classmethod
@@ -238,6 +245,7 @@ class Image(Model):
             image.tags = tags
             await image.save()
             clear_tag_cache()
+            clear_phash_index_cache()
             return True
         return False
 
@@ -248,6 +256,7 @@ class Image(Model):
         if image:
             await image.delete()
             clear_tag_cache()
+            clear_phash_index_cache()
             return True
         return False
 
@@ -258,21 +267,77 @@ class Image(Model):
         return [{"id": img.id, "phash": img.phash} for img in images if img.phash]
 
     @classmethod
-    async def check_duplicate(cls, sha256: str, phash: str) -> bool:
-        """检查图片是否重复"""
+    def _build_phash_record(
+        cls,
+        *,
+        image_id: int,
+        phash: str,
+    ) -> PhashRecord | None:
+        if not phash:
+            return None
+        try:
+            hash_value = phash_hex_to_int(phash)
+        except ValueError:
+            return None
+
+        return PhashRecord(
+            id=image_id,
+            hash_value=hash_value,
+        )
+
+    @classmethod
+    async def _get_phash_index(cls) -> PhashBKTree:
+        global _phash_index_cache
+        if _phash_index_cache is not None:
+            return _phash_index_cache
+
+        records: list[PhashRecord] = []
+        all_images = await cls.all().values("id", "phash")
+        for image in all_images:
+            record = cls._build_phash_record(
+                image_id=image["id"],
+                phash=image["phash"],
+            )
+            if record is not None:
+                records.append(record)
+
+        _phash_index_cache = PhashBKTree(records)
+        return _phash_index_cache
+
+    @classmethod
+    def _append_to_phash_index_cache(cls, image: "Image") -> None:
+        global _phash_index_cache
+        if _phash_index_cache is None:
+            return
+
+        record = cls._build_phash_record(
+            image_id=image.id,
+            phash=image.phash,
+        )
+        if record is not None:
+            _phash_index_cache.add(record)
+
+    @classmethod
+    async def check_duplicate(cls, sha256: str, phash: str) -> Optional[int]:
+        """检查图片是否重复，返回命中的图片 ID"""
         image = await cls.get_or_none(sha256=sha256)
         if image:
-            return True
-        perceptual_hash = imagehash.hex_to_hash(phash)
-        for phash in await cls.all().values_list("phash", flat=True):  # type: ignore
-            if phash:
-                b = imagehash.hex_to_hash(phash)
-                if (
-                    phash_distance(perceptual_hash, b)
-                    <= config.PHASH_DUPLICATE_THRESHOLD
-                ):
-                    return True
-        return False
+            return image.id
+
+        try:
+            hash_value = phash_hex_to_int(phash)
+        except ValueError:
+            return None
+
+        phash_index = await cls._get_phash_index()
+        matches = phash_index.search(
+            hash_value,
+            config.PHASH_DUPLICATE_THRESHOLD,
+            limit=1,
+        )
+        if matches:
+            return matches[0].record.id
+        return None
 
     @classmethod
     async def find_similar_images(
@@ -289,41 +354,34 @@ class Image(Model):
             相似图片列表，包含图片信息和相似度距离
         """
         try:
-            target_hash = imagehash.hex_to_hash(phash)
+            hash_value = phash_hex_to_int(phash)
         except ValueError:
             return []
 
-        # 获取所有图片的phash
-        all_images = await cls.all().values(
-            "id", "phash", "filename", "tags", "nsfw", "created_at"
-        )
+        phash_index = await cls._get_phash_index()
+        matches = phash_index.search(hash_value, threshold, limit=limit)
+        if not matches:
+            return []
 
-        similar_images = []
-        for img_data in all_images:
-            img_phash = img_data.get("phash")
-            if not img_phash:
-                continue
-            try:
-                img_hash = imagehash.hex_to_hash(img_phash)
-                distance = phash_distance(target_hash, img_hash)
-                if distance <= threshold:
-                    similar_images.append(
-                        {
-                            "id": img_data["id"],
-                            "filename": img_data["filename"],
-                            "tags": img_data["tags"],
-                            "nsfw": img_data["nsfw"],
-                            "created_at": (
-                                img_data["created_at"].isoformat()
-                                if img_data["created_at"]
-                                else None
-                            ),
-                            "distance": distance,
-                        }
-                    )
-            except ValueError:
-                continue
+        ordered_ids = [match.record.id for match in matches]
+        images = await cls.filter(id__in=ordered_ids)
+        image_map = {image.id: image for image in images}
 
-        # 按距离排序（越小越相似），然后限制数量
-        similar_images.sort(key=lambda x: x["distance"])
-        return similar_images[:limit]
+        result: list[Dict[str, Any]] = []
+        for match in matches:
+            image = image_map.get(match.record.id)
+            if image is None:
+                continue
+            result.append(
+                {
+                    "id": image.id,
+                    "filename": image.filename,
+                    "tags": image.tags,
+                    "nsfw": image.nsfw,
+                    "created_at": (
+                        image.created_at.isoformat() if image.created_at else None
+                    ),
+                    "distance": match.distance,
+                }
+            )
+        return result

@@ -107,9 +107,10 @@ onUnmounted(() => {
 }
 
 .navbar__inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: var(--space-sm) var(--space-lg);
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: var(--space-sm) clamp(18px, 3vw, 40px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -214,6 +215,10 @@ onUnmounted(() => {
 }
 
 @media (max-width: 640px) {
+  .navbar__inner {
+    padding: var(--space-sm) var(--space-md);
+  }
+
   .navbar__toggle {
     display: block;
     margin-left: auto;

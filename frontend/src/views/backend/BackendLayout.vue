@@ -223,7 +223,7 @@ onMounted(async () => {
 }
 
 .bl-login__card {
-  width: min(352px, 100%);
+  width: min(420px, 100%);
   padding: var(--space-2xl);
   background-color: var(--terminal-surface);
   border: 1px solid var(--terminal-border);
@@ -246,14 +246,14 @@ onMounted(async () => {
 
 .bl-login__title {
   font-family: var(--font-display);
-  font-size: 1.20rem;
+  font-size: 1.42rem;
   color: var(--terminal-text-bright);
   letter-spacing: -0.02em;
 }
 
 .bl-login__subtitle {
   color: var(--terminal-text-dim);
-  font-size: 0.68rem;
+  font-size: 0.86rem;
   margin-top: var(--space-xs);
 }
 
@@ -265,7 +265,7 @@ onMounted(async () => {
 }
 
 .bl-login__label {
-  font-size: 0.64rem;
+  font-size: 0.76rem;
   color: var(--terminal-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -273,13 +273,13 @@ onMounted(async () => {
 
 .bl-login__input {
   width: 100%;
-  padding: 0.60rem 0.80rem;
+  padding: 0.82rem 1rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
   font-family: var(--font-body);
-  font-size: 0.76rem;
+  font-size: 0.94rem;
   transition: border-color var(--transition-fast);
 }
 
@@ -305,11 +305,11 @@ onMounted(async () => {
 
 .bl-login__btn {
   width: 100%;
-  padding: 0.60rem 0.80rem;
+  padding: 0.84rem 1rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-size: 0.76rem;
+  font-size: 0.94rem;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -334,8 +334,8 @@ onMounted(async () => {
   border-color: var(--terminal-border);
   color: var(--terminal-text);
   width: auto;
-  padding: 0.40rem 0.68rem;
-  font-size: 0.68rem;
+  padding: 0.54rem 0.86rem;
+  font-size: 0.82rem;
 }
 
 .bl-login__btn--ghost:hover {
@@ -345,7 +345,7 @@ onMounted(async () => {
 
 .bl-login__msg {
   margin-top: var(--space-md);
-  font-size: 0.68rem;
+  font-size: 0.84rem;
   text-align: center;
 }
 
@@ -361,7 +361,7 @@ onMounted(async () => {
   display: block;
   margin-top: var(--space-lg);
   text-align: center;
-  font-size: 0.68rem;
+  font-size: 0.84rem;
   color: var(--terminal-text-dim);
   text-decoration: none;
 }
@@ -384,7 +384,7 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-md);
   height: var(--terminal-header-height);
-  padding: 0 var(--space-lg);
+  padding: 0 clamp(18px, 2.8vw, 36px);
   background-color: var(--terminal-surface);
   border-bottom: 1px solid var(--terminal-border);
   flex-shrink: 0;
@@ -416,24 +416,24 @@ onMounted(async () => {
 }
 
 .bl-header__icon {
-  font-size: 0.96rem;
+  font-size: 1.12rem;
   color: var(--terminal-accent);
   text-shadow: 0 0 12px var(--terminal-accent-glow);
 }
 
 .bl-header__title {
   font-family: var(--font-display);
-  font-size: 0.88rem;
+  font-size: 1.06rem;
   color: var(--terminal-text-bright);
 }
 
 .bl-header__logout {
-  padding: 0.32rem 0.68rem;
+  padding: 0.52rem 0.9rem;
   background: transparent;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
-  font-size: 0.64rem;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -458,7 +458,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: var(--space-md) 0;
+  padding: var(--space-lg) 0;
   flex-shrink: 0;
 }
 
@@ -473,11 +473,11 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 0.52rem var(--space-md);
+  padding: 0.78rem var(--space-md);
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
   text-decoration: none;
-  font-size: 0.72rem;
+  font-size: 0.92rem;
   transition: all var(--transition-fast);
 }
 
@@ -492,9 +492,9 @@ onMounted(async () => {
 }
 
 .bl-sidebar__icon {
-  width: 16px;
+  width: 18px;
   text-align: center;
-  font-size: 0.80rem;
+  font-size: 0.94rem;
 }
 
 .bl-sidebar__footer {
@@ -506,10 +506,10 @@ onMounted(async () => {
 
 .bl-sidebar__link {
   display: block;
-  font-size: 0.64rem;
+  font-size: 0.82rem;
   color: var(--terminal-text-dim);
   text-decoration: none;
-  padding: 0.40rem var(--space-md);
+  padding: 0.56rem var(--space-md);
   border-radius: var(--radius-sm);
   transition: color var(--transition-fast);
 }
@@ -531,13 +531,34 @@ onMounted(async () => {
 .bl-workspace {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-lg);
+  padding: clamp(18px, 2.8vw, 36px);
 }
 
 /* ── 响应式 ── */
 @media (max-width: 768px) {
+  .bl-login {
+    padding: var(--space-lg);
+  }
+
+  .bl-login__card {
+    padding: var(--space-xl);
+  }
+
   .bl-header__hamburger {
     display: flex;
+  }
+
+  .bl-header {
+    padding: 0 var(--space-md);
+  }
+
+  .bl-header__title {
+    font-size: 1rem;
+  }
+
+  .bl-header__logout {
+    padding: 0.48rem 0.76rem;
+    font-size: 0.76rem;
   }
 
   .bl-sidebar {
@@ -556,6 +577,28 @@ onMounted(async () => {
 
   .bl-sidebar__overlay {
     display: block;
+  }
+
+  .bl-workspace {
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .bl-login__title {
+    font-size: 1.28rem;
+  }
+
+  .bl-login__subtitle,
+  .bl-login__label,
+  .bl-login__msg,
+  .bl-login__back {
+    font-size: 0.78rem;
+  }
+
+  .bl-login__input,
+  .bl-login__btn {
+    font-size: 0.9rem;
   }
 }
 </style>

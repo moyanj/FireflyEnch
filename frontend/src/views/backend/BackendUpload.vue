@@ -347,7 +347,8 @@ async function handleUpload() {
 
 <style scoped>
 .bu-page {
-  max-width: 880px;
+  width: 100%;
+  max-width: 1280px;
 }
 
 .bu-page__header {
@@ -356,21 +357,21 @@ async function handleUpload() {
 
 .bu-page__title {
   font-family: var(--font-display);
-  font-size: 1.08rem;
+  font-size: 1.42rem;
   color: var(--terminal-text-bright);
   margin-bottom: var(--space-xs);
 }
 
 .bu-page__desc {
   color: var(--terminal-text-dim);
-  font-size: 0.68rem;
+  font-size: 0.9rem;
 }
 
 /* ── 工作台布局 ── */
 .bu-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: var(--space-xl);
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 1fr);
+  gap: var(--space-2xl);
   align-items: start;
 }
 
@@ -387,7 +388,7 @@ async function handleUpload() {
   border: 2px dashed var(--terminal-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  min-height: 208px;
+  min-height: 320px;
   transition: border-color var(--transition-fast);
   background-color: var(--terminal-surface);
 }
@@ -402,7 +403,7 @@ async function handleUpload() {
 
 .bu-upload__placeholder,
 .bu-upload__preview {
-  min-height: 208px;
+  min-height: 320px;
   display: grid;
   place-items: center;
 }
@@ -413,7 +414,7 @@ async function handleUpload() {
 }
 
 .bu-upload__icon {
-  font-size: 2.00rem;
+  font-size: 2.8rem;
   color: var(--terminal-accent);
   display: block;
   margin-bottom: var(--space-sm);
@@ -421,19 +422,19 @@ async function handleUpload() {
 
 .bu-upload__text {
   display: block;
-  font-size: 0.80rem;
+  font-size: 1rem;
   color: var(--terminal-text);
 }
 
 .bu-upload__hint {
   display: block;
-  font-size: 0.64rem;
+  font-size: 0.82rem;
   margin-top: var(--space-xs);
 }
 
 .bu-upload__preview-img {
   width: 100%;
-  height: 208px;
+  height: 320px;
   object-fit: contain;
 }
 
@@ -441,8 +442,8 @@ async function handleUpload() {
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   background: var(--terminal-bg);
@@ -450,7 +451,7 @@ async function handleUpload() {
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
   cursor: pointer;
-  font-size: 0.60rem;
+  font-size: 0.78rem;
   transition: all var(--transition-fast);
 }
 
@@ -467,7 +468,7 @@ async function handleUpload() {
 }
 
 .bu-label {
-  font-size: 0.64rem;
+  font-size: 0.78rem;
   color: var(--terminal-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -475,13 +476,13 @@ async function handleUpload() {
 
 .bu-input {
   width: 100%;
-  padding: 0.60rem 0.80rem;
+  padding: 0.82rem 1rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
   font-family: var(--font-body);
-  font-size: 0.72rem;
+  font-size: 0.92rem;
   transition: border-color var(--transition-fast);
 }
 
@@ -496,7 +497,7 @@ async function handleUpload() {
 }
 
 .bu-textarea {
-  min-height: 88px;
+  min-height: 120px;
   resize: vertical;
 }
 
@@ -516,7 +517,7 @@ async function handleUpload() {
   align-items: center;
   gap: var(--space-sm);
   color: var(--terminal-text-dim);
-  font-size: 0.68rem;
+  font-size: 0.86rem;
 }
 
 .bu-ai-status__empty,
@@ -525,7 +526,7 @@ async function handleUpload() {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 0.68rem;
+  font-size: 0.86rem;
 }
 
 .bu-ai-status__empty {
@@ -553,12 +554,12 @@ async function handleUpload() {
 
 .bu-ai-tag__input {
   width: 100%;
-  padding: 0.44rem 0.60rem;
+  padding: 0.68rem 0.84rem;
   border: 1px solid var(--terminal-border);
   border-radius: var(--radius-sm);
   background-color: var(--terminal-bg);
   color: var(--terminal-text-bright);
-  font-size: 0.68rem;
+  font-size: 0.84rem;
 }
 
 .bu-ai-tag__input:focus {
@@ -567,8 +568,8 @@ async function handleUpload() {
 }
 
 .bu-ai-tag__remove {
-  width: 19px;
-  height: 19px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   background: transparent;
@@ -576,7 +577,7 @@ async function handleUpload() {
   border-radius: var(--radius-sm);
   color: var(--terminal-text-dim);
   cursor: pointer;
-  font-size: 0.56rem;
+  font-size: 0.74rem;
   transition: all var(--transition-fast);
 }
 
@@ -595,12 +596,12 @@ async function handleUpload() {
 .bu-suggestion-chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.26rem 0.54rem;
+  padding: 0.44rem 0.72rem;
   border: 1px solid var(--terminal-border);
   border-radius: 999px;
   background: transparent;
   color: var(--terminal-text);
-  font-size: 0.64rem;
+  font-size: 0.82rem;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -633,16 +634,16 @@ async function handleUpload() {
 
 .bu-tag-chip {
   display: inline-flex;
-  padding: 2px var(--space-sm);
+  padding: 4px 9px;
   border-radius: var(--radius-sm);
   background-color: var(--terminal-accent-glow);
   color: var(--terminal-accent);
-  font-size: 0.62rem;
+  font-size: 0.8rem;
 }
 
 .bu-tag-summary__empty {
   color: var(--terminal-text-dim);
-  font-size: 0.68rem;
+  font-size: 0.84rem;
 }
 
 /* ── 按钮 ── */
@@ -650,11 +651,11 @@ async function handleUpload() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.56rem 0.80rem;
+  padding: 0.8rem 1rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -691,8 +692,8 @@ async function handleUpload() {
 }
 
 .bu-btn--compact {
-  padding: 0.36rem 0.56rem;
-  font-size: 0.64rem;
+  padding: 0.5rem 0.72rem;
+  font-size: 0.78rem;
 }
 
 /* ── 结果提示 ── */
@@ -702,7 +703,7 @@ async function handleUpload() {
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-sm);
-  font-size: 0.68rem;
+  font-size: 0.86rem;
 }
 
 .bu-result--success {
@@ -728,8 +729,8 @@ async function handleUpload() {
 
 /* ── 加载动画 ── */
 .bu-spinner {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--terminal-border);
   border-top-color: var(--terminal-accent);
   border-radius: 50%;
@@ -742,8 +743,32 @@ async function handleUpload() {
 
 /* ── 响应式 ── */
 @media (max-width: 768px) {
+  .bu-page__title {
+    font-size: 1.28rem;
+  }
+
+  .bu-page__desc {
+    font-size: 0.86rem;
+  }
+
   .bu-workbench {
     grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .bu-upload-area,
+  .bu-upload__placeholder,
+  .bu-upload__preview {
+    min-height: 240px;
+  }
+
+  .bu-upload__preview-img {
+    height: 240px;
+  }
+
+  .bu-input,
+  .bu-btn {
+    font-size: 0.88rem;
   }
 }
 </style>
