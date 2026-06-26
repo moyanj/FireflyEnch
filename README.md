@@ -31,8 +31,19 @@ make run
 ```bash
 git clone https://github.com/moyanj/FireflyEnch
 cd FireflyEnch
+docker compose up -d --build
+```
+
+默认 Docker 部署使用 MySQL，数据库数据保存在 `mysql_data` volume 中。
+当前 Docker 部署只挂载 `./rdata/data` 到容器内的数据目录。应用配置优先走环境变量，不再依赖把 `config.py` 挂进容器。
+
+常用环境变量包括 `APP_PORT`、`APP_KEY`、`DB_TYPE`、`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME`、`AI_ENABLED`、`AI_BASE_URL`、`AI_API_KEY`、`AI_MODEL`、`DATA_PATH`、`UPLOAD_FOLDER`、`THUMBNAIL_FOLDER`、`TEMP_UPLOAD_FOLDER`。
+
+单独构建镜像：
+
+```bash
 make docker
-docker run -p 8896:8896 -v /path/to/data:/moyan/data fireflyench:2.5.0
+docker run -d --name fireflyench -p 8896:8896 -v $(pwd)/data:/moyan/data fireflyench:$(cat VERSION)
 ```
 
 ## 配置

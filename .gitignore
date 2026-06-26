@@ -170,3 +170,5 @@ db/
 data/
 
 .nsfw_cache/
+
+rdata/

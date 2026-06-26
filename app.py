@@ -37,7 +37,6 @@ from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from captcha.image import ImageCaptcha
 from tortoise.contrib.fastapi import RegisterTortoise
-from tortoise import connections
 
 # 导入应用配置
 from config import (
@@ -135,17 +134,6 @@ async def cleanup_expired_auth_data() -> None:
             del login_tokens[token]
 
 
-async def _ensure_db_indexes() -> None:
-    """确保常用查询字段存在数据库索引（幂等，已存在则跳过）"""
-    conn = connections.get("default")
-    for sql in [
-        "CREATE INDEX IF NOT EXISTS idx_images_sha256 ON images (sha256)",
-        "CREATE INDEX IF NOT EXISTS idx_images_nsfw ON images (nsfw)",
-        "CREATE INDEX IF NOT EXISTS idx_images_created_at ON images (created_at)",
-    ]:
-        await conn.execute_query(sql)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时创建必要目录，初始化数据库"""
@@ -160,7 +148,6 @@ async def lifespan(app: FastAPI):
         config=TORTOISE_ORM,
         generate_schemas=True,
     ):
-        await _ensure_db_indexes()
         yield
 
 
@@ -829,9 +816,17 @@ async def clear_cache(_: bool = Depends(verify_appkey)) -> JSONResponse:
 async def static_file(path: str) -> FileResponse:
     """静态文件服务（前端 SPA）"""
     file_path = get_safe_path("files", path)
-    if not file_path or not os.path.isfile(file_path):
+    if file_path and os.path.isfile(file_path):
+        return FileResponse(file_path)
+
+    index_path = get_safe_path("files", "index.html")
+    if not index_path or not os.path.isfile(index_path):
         raise HTTPException(status_code=404, detail="文件不存在")
-    return FileResponse(file_path)
+
+    if not path or "." not in os.path.basename(path):
+        return FileResponse(index_path)
+
+    raise HTTPException(status_code=404, detail="文件不存在")
 
 
 # ==================== 启动入口 ====================

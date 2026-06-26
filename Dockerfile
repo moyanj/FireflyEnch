@@ -1,37 +1,38 @@
-# Use Python slim image to reduce size
-FROM python:3.14-slim
+FROM node:24-alpine AS frontend-build
 
-# Set environment variables
+WORKDIR /frontend
+
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile
+
+COPY frontend/ ./
+RUN pnpm build
+
+FROM python:3.13-slim
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    VIRTUAL_ENV=/moyan/.venv \
+    PATH="/moyan/.venv/bin:$PATH"
 
-# Install uv
-RUN pip install --no-cache-dir -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Set the working directory
 WORKDIR /moyan
 
-# Copy only the requirements file initially
 COPY pyproject.toml uv.lock ./
-
-# Install dependencies
 RUN uv sync --frozen --no-dev
 
-# Copy the rest of the application
 COPY . .
+COPY --from=frontend-build /frontend/dist ./files
 
-# Copy frontend assets
-COPY frontend/dist ./files
-
-# Create a non-root user for running the application
-RUN adduser --system --group moyan \
+RUN chmod +x /moyan/entrypoint.sh \
+    && mkdir -p /moyan/data/uploads /moyan/data/thumbs /moyan/data/temp \
+    && adduser --system --group moyan \
     && chown -R moyan:moyan /moyan
 
-# Switch to the non-root user
-USER moyan
+VOLUME ["/moyan/data"]
 
-# Expose the port that the app runs on
 EXPOSE 8896
 
-# Command to run the application
-CMD ["uv", "run", "app.py"]
+ENTRYPOINT ["/moyan/entrypoint.sh"]
+CMD ["python", "app.py"]
