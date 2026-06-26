@@ -60,7 +60,7 @@ MAX_TAGS = env_int("MAX_TAGS", 25)
 DATA_PATH = os.path.abspath(env_str("DATA_PATH", "./data"))
 UPLOAD_FOLDER = env_str("UPLOAD_FOLDER", os.path.join(DATA_PATH, "uploads"))
 DB_FILE = env_str("DB_FILE", os.path.join(DATA_PATH, "data.db"))
-SECRET_KEY = env_str("SECRET_KEY", env_str("APP_KEY", "12345678"))
+SECRET_KEY = env_str("SECRET_KEY", "12345678")
 
 # ==================== 分页和缩略图 ====================
 
